@@ -1,8 +1,8 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include "fix.h"
 
-char* str = "..dynsym..dynstr..hash..rel.dyn..rel.plt..text..ARM.extab..ARM.exidx..fini_array..init_array..dynamic..got..data..bass..shstrtab\0";
-char* str1 = "..dynsym\0.dynstr\0.hash\0.rel.dyn\0.rel.plt\0.text\0.ARM.extab\0.ARM.exidx\0.fini_array\0.init_array\0.dynamic\0.got\0.data\0.bass\0.shstrtab\0";
+char* str = "..dynsym..dynstr..hash..rel.dyn..rel.plt..plt..text@.ARM.extab..ARM.exidx..fini_array..init_array..dynamic..got..data..bss..shstrtab\0";
+char* str1 = "\0.dynsym\0.dynstr\0.hash\0.rel.dyn\0.rel.plt\0.plt\0.text@.ARM.extab\0.ARM.exidx\0.fini_array\0.init_array\0.dynamic\0.got\0.data\0.bss\0.shstrtab\0";
 Elf32_Shdr shdr[SHDRS] = { 0 };
 
 void get_elf_header(char* buffer,Elf32_Ehdr** pehdr)
@@ -29,8 +29,7 @@ long get_file_len(FILE* p)
 }
 
 
-void get_Info(Elf32_Phdr* phdr, Elf32_Ehdr *pehdr, char* buffer,
-	char** sh_buffer, int sh_len)
+void get_Info(Elf32_Phdr* phdr, Elf32_Ehdr *pehdr, char* buffer)
 {
 	Elf32_Dyn* dyn = NULL;
 	Elf32_Dyn* d = NULL;
@@ -41,9 +40,6 @@ void get_Info(Elf32_Phdr* phdr, Elf32_Ehdr *pehdr, char* buffer,
 	int nbucket = 0, nchain = 0;
 	int flag = 0, i = 0;
 
-	memset(*sh_buffer, 0, sh_len);
-
-	i = 0;
 	for(;i < ph_num;i++) {
 		if (phdr[i].p_type == PT_LOAD) {
 			if (phdr[i].p_vaddr > 0x0) {
@@ -54,6 +50,7 @@ void get_Info(Elf32_Phdr* phdr, Elf32_Ehdr *pehdr, char* buffer,
 				shdr[BSS].sh_addr =  phdr[i].p_vaddr + phdr[i].p_filesz;
 				shdr[BSS].sh_offset = shdr[BSS].sh_addr - 0x1000;
 				shdr[BSS].sh_addralign = 1;
+
 				continue;
 			}
 		}
@@ -128,7 +125,7 @@ void get_Info(Elf32_Phdr* phdr, Elf32_Ehdr *pehdr, char* buffer,
 				shdr[HASH].sh_link = 4;
 				shdr[HASH].sh_info = 1;
 				shdr[HASH].sh_addralign = 4;
-				shdr[HASH].sh_entsize = 4;	
+				shdr[HASH].sh_entsize = 4;
 				break;
 
 			case DT_REL:
@@ -145,7 +142,7 @@ void get_Info(Elf32_Phdr* phdr, Elf32_Ehdr *pehdr, char* buffer,
 
 			case DT_JMPREL:
 				shdr[RELPLT].sh_name = strstr(str, ".rel.plt") - str;
-				shdr[RELPLT].sh_type = SHT_PROGBITS;
+				shdr[RELPLT].sh_type = SHT_REL;
 				shdr[RELPLT].sh_flags = SHF_ALLOC;
 				shdr[RELPLT].sh_addr = dyn[i].d_un.d_ptr;
 				shdr[RELPLT].sh_offset = dyn[i].d_un.d_ptr;
@@ -228,6 +225,7 @@ void get_Info(Elf32_Phdr* phdr, Elf32_Ehdr *pehdr, char* buffer,
 	shdr[DATA].sh_offset = shdr[DATA].sh_addr - 0x1000;
 	shdr[DATA].sh_size = load.p_vaddr + load.p_filesz - shdr[DATA].sh_addr;
 	shdr[DATA].sh_addralign = 4;
+	shdr[GOT].sh_size = shdr[DATA].sh_offset - shdr[GOT].sh_offset;
 
 	shdr[STRTAB].sh_name = strstr(str, ".shstrtab") - str;
 	shdr[STRTAB].sh_type = SHT_STRTAB;
@@ -236,21 +234,16 @@ void get_Info(Elf32_Phdr* phdr, Elf32_Ehdr *pehdr, char* buffer,
 	shdr[STRTAB].sh_offset = shdr[BSS].sh_addr - 0x1000;
 	shdr[STRTAB].sh_size = strlen(str) + 1;
 	shdr[STRTAB].sh_addralign = 1;
-	//memcpy(buffer + shdr[STRTAB].sh_offset, str, strlen(str));
-	memcpy(*sh_buffer,shdr,sizeof(shdr));	
 }
 
 int main(int argc, char const *argv[])
 {
-	FILE* fr = NULL;
-	long flen = 0;
-	FILE* fw = NULL;
-	int ph_len = 0;
+	FILE* fr = NULL,* fw = NULL;
+	long flen = 0,result = 0;
 	char* buffer = NULL;
-	char* sh_buffer = NULL;
 	Elf32_Ehdr *pehdr = NULL;
 	Elf32_Phdr* pphdr = NULL;
-	char arr[2048] = { 0 };
+
 	if (argc < 2) {
 		printf("less args\n");
 		return;
@@ -270,7 +263,7 @@ int main(int argc, char const *argv[])
 		goto error;
 	}
 
-	size_t result = fread (buffer,1,flen,fr);
+	result = fread (buffer,1,flen,fr);
 	if (result != flen) {
 		printf("Reading error\n");
 		goto error;
@@ -283,21 +276,23 @@ int main(int argc, char const *argv[])
 	}
 	
 	pehdr = (Elf32_Ehdr*)malloc(sizeof(Elf32_Ehdr));
-	get_elf_header(buffer,&pehdr);
+	get_elf_header(buffer, &pehdr);
 
-	ph_len = pehdr->e_phentsize * pehdr->e_phnum;
-	pphdr = (Elf32_Phdr*)malloc(ph_len);
-	get_program_table(*pehdr,buffer,&pphdr);
+	pphdr = (Elf32_Phdr*)malloc(pehdr->e_phentsize * pehdr->e_phnum);
+	get_program_table(*pehdr, buffer, &pphdr);
 
-	sh_buffer = (char* )malloc(pehdr->e_shentsize * pehdr->e_shnum);
-	get_Info(pphdr, pehdr, buffer, &sh_buffer, pehdr->e_shentsize * pehdr->e_shnum);
+	get_Info(pphdr, pehdr, buffer);
 	
-	memcpy(buffer + pehdr->e_shoff,sh_buffer,pehdr->e_shentsize * pehdr->e_shnum);
 	pehdr->e_shnum = SHDRS;
 	pehdr->e_shstrndx = SHDRS - 1;
+	pehdr->e_shoff = shdr[STRTAB].sh_offset + strlen(str) + 1;
 	memcpy(buffer, pehdr, sizeof(Elf32_Ehdr));
+	memcpy(buffer + shdr[GOT].sh_offset, buffer + shdr[GOT].sh_offset + 0x1000, shdr[GOT].sh_size);
+	//memset(buffer + shdr[DATA].sh_offset, 0, shdr[DATA].sh_offset);
 	memcpy(buffer + shdr[STRTAB].sh_offset, str1, strlen(str) + 1);
-	fwrite(buffer,sizeof(char)*flen,1,fw);
+	memcpy(buffer + pehdr->e_shoff, shdr, pehdr->e_shentsize * pehdr->e_shnum);
+	flen = shdr[STRTAB].sh_offset + strlen(str) + 1 + SHDRS * sizeof(Elf32_Shdr);
+	fwrite(buffer, sizeof(char)*flen, 1, fw);
 
 error:
 	if(fw != NULL)
