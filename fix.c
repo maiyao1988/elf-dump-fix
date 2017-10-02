@@ -1,8 +1,8 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include "fix.h"
 
-char* str = "..dynsym..dynstr..hash..rel.dyn..rel.plt..plt..text@.ARM.extab..ARM.exidx..fini_array..init_array..dynamic..got..data..bss..shstrtab\0";
-char* str1 = "\0.dynsym\0.dynstr\0.hash\0.rel.dyn\0.rel.plt\0.plt\0.text@.ARM.extab\0.ARM.exidx\0.fini_array\0.init_array\0.dynamic\0.got\0.data\0.bss\0.shstrtab\0";
+const char* str = "..dynsym..dynstr..hash..rel.dyn..rel.plt..plt..text@.ARM.extab..ARM.exidx..fini_array..init_array..dynamic..got..data..bss..shstrtab\0";
+const char* str1 = "\0.dynsym\0.dynstr\0.hash\0.rel.dyn\0.rel.plt\0.plt\0.text@.ARM.extab\0.ARM.exidx\0.fini_array\0.init_array\0.dynamic\0.got\0.data\0.bss\0.shstrtab\0";
 Elf32_Shdr shdr[SHDRS] = { 0 };
 
 void get_elf_header(char* buffer,Elf32_Ehdr** pehdr)
@@ -246,7 +246,7 @@ int main(int argc, char const *argv[])
 
 	if (argc < 2) {
 		printf("less args\n");
-		return;
+		return -1;
 	}
 
 	fr = fopen(argv[1],"rb");
