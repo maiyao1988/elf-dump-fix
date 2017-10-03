@@ -7,13 +7,13 @@ static const char* g_strtabcontent = "\0.dynsym\0.dynstr\0.hash\0.rel.dyn\0.rel.
 //段表项
 static Elf32_Shdr g_shdr[SHDRS] = { 0 };
 
-void get_elf_header(Elf32_Ehdr *pehdr, const char* buffer)
+void get_elf_header(Elf32_Ehdr *pehdr, const char *buffer)
 {
 	int header_len = sizeof(Elf32_Ehdr);
 	memcpy(pehdr, (void*)buffer, header_len);
 }
 
-void get_program_table(Elf32_Phdr *pphdr, const Elf32_Ehdr *ehdr,const char *buffer)
+void get_program_table(Elf32_Phdr *pphdr, const Elf32_Ehdr *ehdr, const char *buffer)
 {
 	int ph_size = ehdr->e_phentsize;
 	int ph_num = ehdr->e_phnum;
@@ -294,7 +294,9 @@ int main(int argc, char const *argv[])
 	//memset(buffer + shdr[DATA].sh_offset, 0, shdr[DATA].sh_offset);
 	memcpy(output + g_shdr[STRTAB].sh_offset, g_strtabcontent, len_gstr + 1);
 	memcpy(output + ehdr.e_shoff, g_shdr, ehdr.e_shentsize * ehdr.e_shnum);
-	flen = g_shdr[STRTAB].sh_offset + g_str + 1 + SHDRS * sizeof(Elf32_Shdr);
+	
+	//新文件大小=段表的偏移+新插入的所有段表头大小
+	flen = ehdr.e_shoff + SHDRS * sizeof(Elf32_Shdr);
 	fwrite(output, flen, 1, fw);
 	
 error:
