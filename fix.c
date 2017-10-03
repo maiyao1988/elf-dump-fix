@@ -41,21 +41,11 @@ void get_Info(Elf32_Phdr *phdr, Elf32_Ehdr *pehdr, char *buffer)
 	int i = 0;
 
 	for(;i < ph_num;i++) {
-		if (phdr[i].p_type == PT_LOAD) {
-			if (phdr[i].p_vaddr > 0x0) {
-				load = phdr[i];
-				g_shdr[BSS].sh_name = strstr(g_str,".bss") - g_str;
-				g_shdr[BSS].sh_type = SHT_NOBITS;
-				g_shdr[BSS].sh_flags = SHF_WRITE | SHF_ALLOC;
-				g_shdr[BSS].sh_addr =  phdr[i].p_vaddr + phdr[i].p_filesz;
-				g_shdr[BSS].sh_offset = g_shdr[BSS].sh_addr - 0x1000;
-				g_shdr[BSS].sh_addralign = 1;
-
-				continue;
-			}
-		}
-
-		if(phdr[i].p_type == PT_DYNAMIC) {
+        //段在文件中的偏移修正，因为从内存dump出来的文件偏移就是在内存的偏移
+        phdr[i].p_offset =  phdr[i].p_vaddr;
+        Elf32_Word p_type = phdr[i].p_type;
+		if(p_type == PT_DYNAMIC) {
+            //动态表，动态表包括很多项，找到动态表位置可以恢复大部分结构
 			g_shdr[DYNAMIC].sh_name = strstr(g_str, ".dynamic") - g_str;
 			g_shdr[DYNAMIC].sh_type = SHT_DYNAMIC;
 			g_shdr[DYNAMIC].sh_flags = SHF_WRITE | SHF_ALLOC;
@@ -89,8 +79,10 @@ void get_Info(Elf32_Phdr *phdr, Elf32_Ehdr *pehdr, char *buffer)
 	dyn = (Elf32_Dyn*)malloc(dyn_size);
 	memcpy(dyn,buffer+dyn_off,dyn_size);
 	i = 0;
-	for (; i < dyn_size / sizeof(Elf32_Dyn); i++) {
-		switch (dyn[i].d_tag) {
+    int n = dyn_size / sizeof(Elf32_Dyn);
+	for (; i < n; i++) {
+        int tag = dyn[i].d_tag;
+		switch (tag) {
 			case DT_SYMTAB:
 				g_shdr[DYNSYM].sh_name = strstr(g_str, ".dynsym") - g_str;
 				g_shdr[DYNSYM].sh_type = SHT_DYNSYM;
@@ -195,6 +187,8 @@ void get_Info(Elf32_Phdr *phdr, Elf32_Ehdr *pehdr, char *buffer)
 				break;
 		}
 	}
+    free(dyn);
+    
 	g_shdr[GOT].sh_size = g_shdr[GOT].sh_size + 4 * (g_shdr[RELPLT].sh_size) / sizeof(Elf32_Rel) + 3 * sizeof(int) - g_shdr[GOT].sh_addr;
 
 	//STRTAB地址 - SYMTAB地址 = SYMTAB大小
@@ -245,11 +239,13 @@ int main(int argc, char const *argv[])
 	Elf32_Phdr *pphdr = NULL;
 
 	if (argc < 2) {
-		printf("less args\n");
+        printf("<so_path>\n");
 		return -1;
 	}
 
 	fr = fopen(argv[1],"rb");
+    //unsigned base = (unsigned)strtol(argv[2], 0, 16);
+    
 	if(fr == NULL) {
 		printf("Open failed: \n");
 		goto error;
@@ -276,6 +272,8 @@ int main(int argc, char const *argv[])
 	}
 	
 	get_elf_header(&ehdr, buffer);
+    //ehdr.e_entry = base;
+    
     size_t sz = ehdr.e_phentsize * ehdr.e_phnum;
     
 	pphdr = (Elf32_Phdr*)malloc(sz);
@@ -291,6 +289,7 @@ int main(int argc, char const *argv[])
     //段表头紧接住段表最后一个成员--段表字符串表之后
 	ehdr.e_shoff = g_shdr[STRTAB].sh_offset + len_gstr + 1;
 	memcpy(buffer, &ehdr, sizeof(Elf32_Ehdr));
+    
 	memcpy(buffer + g_shdr[GOT].sh_offset, buffer + g_shdr[GOT].sh_offset + 0x1000, g_shdr[GOT].sh_size);
 	//memset(buffer + shdr[DATA].sh_offset, 0, shdr[DATA].sh_offset);
 	memcpy(buffer + g_shdr[STRTAB].sh_offset, g_strtabcontent, len_gstr + 1);
