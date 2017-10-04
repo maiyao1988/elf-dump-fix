@@ -13,14 +13,6 @@ void get_elf_header(Elf32_Ehdr *pehdr, const char *buffer)
 	memcpy(pehdr, (void*)buffer, header_len);
 }
 
-void get_program_table(Elf32_Phdr *pphdr, const Elf32_Ehdr *ehdr, const char *buffer)
-{
-	int ph_size = ehdr->e_phentsize;
-	int ph_num = ehdr->e_phnum;
-	memset(pphdr, 0, ph_size * ph_num);
-	memcpy(pphdr, buffer + ehdr->e_phoff,ph_size * ph_num);
-}
-
 long get_file_len(FILE* p)
 {
 	fseek (p, 0, SEEK_END);
@@ -291,10 +283,7 @@ int main(int argc, char const *argv[])
 	get_elf_header(&ehdr, buffer);
 	//ehdr.e_entry = base;
 	
-	size_t sz = ehdr.e_phentsize * ehdr.e_phnum;
-	
-	pphdr = (Elf32_Phdr*)malloc(sz);
-	get_program_table(pphdr, &ehdr, buffer);
+	pphdr = (Elf32_Phdr*)(buffer + ehdr.e_phoff);
 	
 	regen_section_header(pphdr, &ehdr, buffer);
 	
@@ -306,38 +295,23 @@ int main(int argc, char const *argv[])
 	//段表头紧接住段表最后一个成员--字符串段之后
 	ehdr.e_shoff = flen + len_gstr + 1;
 	
-	/*
-	memcpy(buffer, &ehdr, sizeof(Elf32_Ehdr));
-	
-	memcpy(buffer + g_shdr[STRTAB].sh_offset, g_strtabcontent, len_gstr + 1);
-	
-	//修复后段表头复制到目标结构
-	memcpy(buffer + ehdr.e_shoff, g_shdr, ehdr.e_shentsize * ehdr.e_shnum);
-	
-	//新文件大小=段表的偏移+新插入的所有段表头大小
-	flen = ehdr.e_shoff + SHDRS * sizeof(Elf32_Shdr);
-	 */
  	size_t szEhdr = sizeof(Elf32_Ehdr);
 	//Elf头
 	fwrite(&ehdr, szEhdr, 1, fw);
-	int n = ftell(fw);
 	//除了Elf头之外的原文件内容
 	fwrite(buffer+szEhdr, flen-szEhdr, 1, fw);
 	//补上段名字符串段
 	g_shdr[STRTAB].sh_offset = flen;
 	
 	fwrite(g_strtabcontent, len_gstr + 1, 1, fw);
-	int n2 = ftell(fw);
 	//补上段表头
 	fwrite(&g_shdr, sizeof(g_shdr), 1, fw);
 	
-	int n3 = ftell(fw);
 error:
 	if(fw != NULL)
 		fclose(fw);
 	if(fr != NULL)
 		fclose(fr);
-	free(pphdr);
 	free(buffer);
 	return 0;
 }
