@@ -83,8 +83,7 @@ static void regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer)
 		}
 	}
 	
-	dyn = (Elf32_Dyn*)malloc(dyn_size);
-	memcpy(dyn,buffer+dyn_off,dyn_size);
+	dyn = (Elf32_Dyn*)(buffer+dyn_off);
 	i = 0;
 	int n = dyn_size / sizeof(Elf32_Dyn);
 	
@@ -197,7 +196,6 @@ static void regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer)
 				break;
 		}
 	}
-	free(dyn);
 	if (__global_offset_table)
 	{
 		Elf32_Word gotBase = g_shdr[GOT].sh_addr;
@@ -266,12 +264,12 @@ int main(int argc, char const *argv[])
 		printf("<src_so_path> [<out_so_path>]\n");
 		return -1;
 	}
+	const char *openPath = argv[1];
 	const char *outPutPath = "fix.so";
 	if (argc > 2)
 	{
 		outPutPath = argv[2];
 	}
-	const char *openPath = argv[1];
 	fr = fopen(openPath,"rb");
 	//unsigned base = (unsigned)strtol(argv[2], 0, 16);
 	
@@ -294,9 +292,9 @@ int main(int argc, char const *argv[])
 		goto error;
 	}
 	
-	fw = fopen(outPutPath,"wb");
+	fw = fopen(outPutPath, "wb");
 	if(fw == NULL) {
-		printf("Open failed: fix.so\n");
+		printf("Open failed: %s\n", outPutPath);
 		goto error;
 	}
 	
