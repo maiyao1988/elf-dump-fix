@@ -22,11 +22,11 @@ long get_file_len(FILE* p)
 }
 
 
-void regen_section_header(Elf32_Phdr *phdr, const Elf32_Ehdr *pehdr, const char *buffer)
+void regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer)
 {
 	Elf32_Dyn* dyn = NULL;
 	Elf32_Phdr load = { 0 };
-	
+	Elf32_Phdr *phdr = (Elf32_Phdr*)(buffer + pehdr->e_phoff);
 	int ph_num = pehdr->e_phnum;
 	int dyn_size = 0, dyn_off = 0;
 	int nbucket = 0, nchain = 0;
@@ -36,7 +36,19 @@ void regen_section_header(Elf32_Phdr *phdr, const Elf32_Ehdr *pehdr, const char 
 		//段在文件中的偏移修正，因为从内存dump出来的文件偏移就是在内存的偏移
 		phdr[i].p_offset =  phdr[i].p_vaddr;
 		Elf32_Word p_type = phdr[i].p_type;
-		if(p_type == PT_DYNAMIC) {
+		if (phdr[i].p_type == PT_LOAD) {
+			//实际上取的是最后一个PT_LOAD
+			if (phdr[i].p_vaddr > 0x0) {
+				load = phdr[i];
+				g_shdr[BSS].sh_name = strstr(g_str,".bss") - g_str;
+				g_shdr[BSS].sh_type = SHT_NOBITS;
+				g_shdr[BSS].sh_flags = SHF_WRITE | SHF_ALLOC;
+				g_shdr[BSS].sh_addr =  phdr[i].p_vaddr + phdr[i].p_filesz;
+				g_shdr[BSS].sh_offset = g_shdr[BSS].sh_addr - 0x1000;
+				g_shdr[BSS].sh_addralign = 1;
+			}
+		}
+		else if(p_type == PT_DYNAMIC) {
 			//动态表，动态表包括很多项，找到动态表位置可以恢复大部分结构
 			g_shdr[DYNAMIC].sh_name = strstr(g_str, ".dynamic") - g_str;
 			g_shdr[DYNAMIC].sh_type = SHT_DYNAMIC;
@@ -50,10 +62,9 @@ void regen_section_header(Elf32_Phdr *phdr, const Elf32_Ehdr *pehdr, const char 
 			g_shdr[DYNAMIC].sh_entsize = 8;
 			dyn_size = phdr[i].p_filesz;
 			dyn_off = phdr[i].p_offset;
-			continue;
 		}
 		
-		if(phdr[i].p_type == PT_LOPROC || phdr[i].p_type == PT_LOPROC + 1) {
+		else if(phdr[i].p_type == PT_LOPROC || phdr[i].p_type == PT_LOPROC + 1) {
 			g_shdr[ARMEXIDX].sh_name = strstr(g_str, ".ARM.exidx") - g_str;
 			g_shdr[ARMEXIDX].sh_type = SHT_LOPROC;
 			g_shdr[ARMEXIDX].sh_flags = SHF_ALLOC;
@@ -64,7 +75,6 @@ void regen_section_header(Elf32_Phdr *phdr, const Elf32_Ehdr *pehdr, const char 
 			g_shdr[ARMEXIDX].sh_info = 0;
 			g_shdr[ARMEXIDX].sh_addralign = 4;
 			g_shdr[ARMEXIDX].sh_entsize = 8;
-			continue;
 		}
 	}
 	
@@ -245,7 +255,6 @@ int main(int argc, char const *argv[])
 	FILE *fr = NULL, *fw = NULL;
 	char *buffer = NULL;
 	Elf32_Ehdr ehdr = {0};
-	Elf32_Phdr *pphdr = NULL;
 	
 	if (argc < 2) {
 		printf("<so_path>\n");
@@ -283,9 +292,8 @@ int main(int argc, char const *argv[])
 	get_elf_header(&ehdr, buffer);
 	//ehdr.e_entry = base;
 	
-	pphdr = (Elf32_Phdr*)(buffer + ehdr.e_phoff);
 	
-	regen_section_header(pphdr, &ehdr, buffer);
+	regen_section_header(&ehdr, buffer);
 	
 	size_t len_gstr = strlen(g_str);
 	ehdr.e_shnum = SHDRS;
