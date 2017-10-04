@@ -9,7 +9,7 @@ static Elf32_Word _get_off_in_shstrtab(const char *name)
 	return (Elf32_Word)(strstr(g_str, name) - g_str);
 }
 
-//段表项
+//段表
 static Elf32_Shdr g_shdr[SHDRS] = { 0 };
 
 static void get_elf_header(Elf32_Ehdr *pehdr, const char *buffer)
@@ -29,7 +29,6 @@ static long get_file_len(FILE* p)
 
 static void regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer)
 {
-	Elf32_Dyn* dyn = NULL;
 	Elf32_Phdr load = { 0 };
 	Elf32_Phdr *phdr = (Elf32_Phdr*)(buffer + pehdr->e_phoff);
 	int ph_num = pehdr->e_phnum;
@@ -54,7 +53,7 @@ static void regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer)
 			}
 		}
 		else if(p_type == PT_DYNAMIC) {
-			//动态表，动态表包括很多项，找到动态表位置可以恢复大部分结构
+			//动态表，动态表包括很多项，找到动态表位置可以恢复大部分结构,这个是恢复的突破口
 			g_shdr[DYNAMIC].sh_name = _get_off_in_shstrtab(".dynamic");
 			g_shdr[DYNAMIC].sh_type = SHT_DYNAMIC;
 			g_shdr[DYNAMIC].sh_flags = SHF_WRITE | SHF_ALLOC;
@@ -83,7 +82,7 @@ static void regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer)
 		}
 	}
 	
-	dyn = (Elf32_Dyn*)(buffer+dyn_off);
+	const Elf32_Dyn* dyn = (const Elf32_Dyn*)(buffer+dyn_off);
 	i = 0;
 	int n = dyn_size / sizeof(Elf32_Dyn);
 	
@@ -210,11 +209,10 @@ static void regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer)
 			g_shdr[DATA].sh_name = _get_off_in_shstrtab(".data");
 			g_shdr[DATA].sh_type = SHT_PROGBITS;
 			g_shdr[DATA].sh_flags = SHF_WRITE | SHF_ALLOC;
-			g_shdr[DATA].sh_addr = g_shdr[GOT].sh_addr + g_shdr[GOT].sh_size;
+			g_shdr[DATA].sh_addr = gotEnd;
 			g_shdr[DATA].sh_offset = g_shdr[DATA].sh_addr;
 			g_shdr[DATA].sh_size = load.p_vaddr + load.p_filesz - g_shdr[DATA].sh_addr;
 			g_shdr[DATA].sh_addralign = 4;
-			g_shdr[GOT].sh_size = g_shdr[DATA].sh_offset - g_shdr[GOT].sh_offset;
 		}
 		else
 		{
@@ -271,7 +269,6 @@ int main(int argc, char const *argv[])
 		outPutPath = argv[2];
 	}
 	fr = fopen(openPath,"rb");
-	//unsigned base = (unsigned)strtol(argv[2], 0, 16);
 	
 	if(fr == NULL) {
 		printf("Open failed: \n");
