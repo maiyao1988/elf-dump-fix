@@ -44,7 +44,7 @@ void regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer)
 				g_shdr[BSS].sh_type = SHT_NOBITS;
 				g_shdr[BSS].sh_flags = SHF_WRITE | SHF_ALLOC;
 				g_shdr[BSS].sh_addr =  phdr[i].p_vaddr + phdr[i].p_filesz;
-				g_shdr[BSS].sh_offset = g_shdr[BSS].sh_addr - 0x1000;
+				g_shdr[BSS].sh_offset = g_shdr[BSS].sh_addr;
 				g_shdr[BSS].sh_addralign = 1;
 			}
 		}
@@ -156,7 +156,7 @@ void regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer)
 				g_shdr[FINIARRAY].sh_name = strstr(g_str, ".fini_array") - g_str;
 				g_shdr[FINIARRAY].sh_type = 15;
 				g_shdr[FINIARRAY].sh_flags = SHF_WRITE | SHF_ALLOC;
-				g_shdr[FINIARRAY].sh_offset = dyn[i].d_un.d_ptr - 0x1000;
+				g_shdr[FINIARRAY].sh_offset = dyn[i].d_un.d_ptr;
 				g_shdr[FINIARRAY].sh_addr = dyn[i].d_un.d_ptr;
 				g_shdr[FINIARRAY].sh_addralign = 4;
 				g_shdr[FINIARRAY].sh_entsize = 0;
@@ -166,7 +166,7 @@ void regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer)
 				g_shdr[INITARRAY].sh_name = strstr(g_str, ".init_array") - g_str;
 				g_shdr[INITARRAY].sh_type = 14;
 				g_shdr[INITARRAY].sh_flags = SHF_WRITE | SHF_ALLOC;
-				g_shdr[INITARRAY].sh_offset = dyn[i].d_un.d_ptr - 0x1000;
+				g_shdr[INITARRAY].sh_offset = dyn[i].d_un.d_ptr;
 				g_shdr[INITARRAY].sh_addr = dyn[i].d_un.d_ptr;
 				g_shdr[INITARRAY].sh_addralign = 4;
 				g_shdr[INITARRAY].sh_entsize = 0;
@@ -186,7 +186,7 @@ void regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer)
 				g_shdr[GOT].sh_flags = SHF_WRITE | SHF_ALLOC;
 				//TODO:这里基于假设.got一定在.dynamic段之后，并不可靠，王者荣耀libGameCore.so就是例外
 				g_shdr[GOT].sh_addr = g_shdr[DYNAMIC].sh_addr + g_shdr[DYNAMIC].sh_size;
-				g_shdr[GOT].sh_offset = g_shdr[GOT].sh_addr - 0x1000;
+				g_shdr[GOT].sh_offset = g_shdr[GOT].sh_addr;
 				__global_offset_table = dyn[i].d_un.d_ptr;
 				g_shdr[GOT].sh_addralign = 4;
 				break;
@@ -208,7 +208,7 @@ void regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer)
 			g_shdr[DATA].sh_type = SHT_PROGBITS;
 			g_shdr[DATA].sh_flags = SHF_WRITE | SHF_ALLOC;
 			g_shdr[DATA].sh_addr = g_shdr[GOT].sh_addr + g_shdr[GOT].sh_size;
-			g_shdr[DATA].sh_offset = g_shdr[DATA].sh_addr - 0x1000;
+			g_shdr[DATA].sh_offset = g_shdr[DATA].sh_addr;
 			g_shdr[DATA].sh_size = load.p_vaddr + load.p_filesz - g_shdr[DATA].sh_addr;
 			g_shdr[DATA].sh_addralign = 4;
 			g_shdr[GOT].sh_size = g_shdr[DATA].sh_offset - g_shdr[GOT].sh_offset;
@@ -217,6 +217,7 @@ void regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer)
 		{
 			//.got紧接着.dynamic的假设不成立
 			//无法修复GOT，全部清零，以免影响ida分析
+			printf("warning GOT is not after dynamic\n");
 			memset(&g_shdr[GOT], 0, sizeof(Elf32_Shdr));
 		}
 	}
