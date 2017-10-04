@@ -30,7 +30,7 @@ long get_file_len(FILE* p)
 }
 
 
-void get_Info(Elf32_Phdr *phdr, const Elf32_Ehdr *pehdr, const char *buffer)
+void regen_section_header(Elf32_Phdr *phdr, const Elf32_Ehdr *pehdr, const char *buffer)
 {
 	Elf32_Dyn* dyn = NULL;
 	Elf32_Phdr load = { 0 };
@@ -80,6 +80,8 @@ void get_Info(Elf32_Phdr *phdr, const Elf32_Ehdr *pehdr, const char *buffer)
 	memcpy(dyn,buffer+dyn_off,dyn_size);
 	i = 0;
 	int n = dyn_size / sizeof(Elf32_Dyn);
+	
+	Elf32_Word __global_offset_table = 0;
 	for (; i < n; i++) {
 		int tag = dyn[i].d_tag;
 		switch (tag) {
@@ -180,16 +182,42 @@ void get_Info(Elf32_Phdr *phdr, const Elf32_Ehdr *pehdr, const char *buffer)
 				g_shdr[GOT].sh_name = strstr(g_str, ".got") - g_str;
 				g_shdr[GOT].sh_type = SHT_PROGBITS;
 				g_shdr[GOT].sh_flags = SHF_WRITE | SHF_ALLOC;
+				//TODO:这里基于假设.got一定在.dynamic段之后，并不可靠，王者荣耀libGameCore.so就是例外
 				g_shdr[GOT].sh_addr = g_shdr[DYNAMIC].sh_addr + g_shdr[DYNAMIC].sh_size;
 				g_shdr[GOT].sh_offset = g_shdr[GOT].sh_addr - 0x1000;
-				g_shdr[GOT].sh_size = dyn[i].d_un.d_ptr;
+				__global_offset_table = dyn[i].d_un.d_ptr;
 				g_shdr[GOT].sh_addralign = 4;
 				break;
 		}
 	}
 	free(dyn);
-	
-	g_shdr[GOT].sh_size = g_shdr[GOT].sh_size + 4 * (g_shdr[RELPLT].sh_size) / sizeof(Elf32_Rel) + 3 * sizeof(int) - g_shdr[GOT].sh_addr;
+	if (__global_offset_table)
+	{
+		Elf32_Word gotBase = g_shdr[GOT].sh_addr;
+		Elf32_Word gotEnd = __global_offset_table + 4 * (g_shdr[RELPLT].sh_size) / sizeof(Elf32_Rel) + 3 * sizeof(int);
+		
+		//RELPLT有多少个成员__global_offset_table里面就有多少个成员
+		if (gotEnd > gotBase)
+		{
+			g_shdr[GOT].sh_size = gotEnd - gotBase;
+			//假定DATA紧接着GOT
+			//此时GOT才是可靠的值，才能用来修复
+			g_shdr[DATA].sh_name = strstr(g_str, ".data") - g_str;
+			g_shdr[DATA].sh_type = SHT_PROGBITS;
+			g_shdr[DATA].sh_flags = SHF_WRITE | SHF_ALLOC;
+			g_shdr[DATA].sh_addr = g_shdr[GOT].sh_addr + g_shdr[GOT].sh_size;
+			g_shdr[DATA].sh_offset = g_shdr[DATA].sh_addr - 0x1000;
+			g_shdr[DATA].sh_size = load.p_vaddr + load.p_filesz - g_shdr[DATA].sh_addr;
+			g_shdr[DATA].sh_addralign = 4;
+			g_shdr[GOT].sh_size = g_shdr[DATA].sh_offset - g_shdr[GOT].sh_offset;
+		}
+		else
+		{
+			//.got紧接着.dynamic的假设不成立
+			//无法修复GOT，全部清零，以免影响ida分析
+			memset(&g_shdr[GOT], 0, sizeof(Elf32_Shdr));
+		}
+	}
 	
 	//STRTAB地址 - SYMTAB地址 = SYMTAB大小
 	g_shdr[DYNSYM].sh_size = g_shdr[DYNSTR].sh_addr - g_shdr[DYNSYM].sh_addr;
@@ -212,20 +240,27 @@ void get_Info(Elf32_Phdr *phdr, const Elf32_Ehdr *pehdr, const char *buffer)
 	g_shdr[TEXT].sh_offset = g_shdr[TEXT].sh_addr;
 	g_shdr[TEXT].sh_size = g_shdr[ARMEXIDX].sh_addr - g_shdr[TEXT].sh_addr;
 	
-	g_shdr[DATA].sh_name = strstr(g_str, ".data") - g_str;
-	g_shdr[DATA].sh_type = SHT_PROGBITS;
-	g_shdr[DATA].sh_flags = SHF_WRITE | SHF_ALLOC;
-	g_shdr[DATA].sh_addr = g_shdr[GOT].sh_addr + g_shdr[GOT].sh_size;
-	g_shdr[DATA].sh_offset = g_shdr[DATA].sh_addr - 0x1000;
-	g_shdr[DATA].sh_size = load.p_vaddr + load.p_filesz - g_shdr[DATA].sh_addr;
-	g_shdr[DATA].sh_addralign = 4;
-	g_shdr[GOT].sh_size = g_shdr[DATA].sh_offset - g_shdr[GOT].sh_offset;
-	
 	g_shdr[STRTAB].sh_name = strstr(g_str, ".shstrtab") - g_str;
 	g_shdr[STRTAB].sh_type = SHT_STRTAB;
 	g_shdr[STRTAB].sh_flags = SHT_NULL;
 	g_shdr[STRTAB].sh_addr = 0;
-	g_shdr[STRTAB].sh_offset = g_shdr[BSS].sh_addr - 0x1000;
+	
+	//找出偏移最大的一个段，不一定是最后一个，因为可能有些段无法恢复而不存在
+	int nSection = SHDRS;
+	Elf32_Word maxSection = 0;
+	int idMax = 0;
+	for (int i = 0; i < nSection; i++)
+	{
+		if (g_shdr[i].sh_offset > maxSection)
+		{
+			maxSection = g_shdr[i].sh_offset;
+			idMax = i;
+		}
+	}
+	
+	Elf32_Word strOff = g_shdr[idMax].sh_offset + g_shdr[idMax].sh_size;
+	
+	g_shdr[STRTAB].sh_offset = strOff;
 	g_shdr[STRTAB].sh_size = strlen(g_str) + 1;
 	g_shdr[STRTAB].sh_addralign = 1;
 }
@@ -233,8 +268,7 @@ void get_Info(Elf32_Phdr *phdr, const Elf32_Ehdr *pehdr, const char *buffer)
 int main(int argc, char const *argv[])
 {
 	FILE *fr = NULL, *fw = NULL;
-	long flen = 0,result = 0;
-	char *output = NULL;
+	char *buffer = NULL;
 	Elf32_Ehdr ehdr = {0};
 	Elf32_Phdr *pphdr = NULL;
 	
@@ -251,15 +285,15 @@ int main(int argc, char const *argv[])
 		goto error;
 	}
 	
-	flen = get_file_len(fr);
+	int flen = get_file_len(fr);
 	
-	output = (char*)malloc(flen);
-	if (output == NULL) {
+	buffer = (char*)malloc(flen);
+	if (buffer == NULL) {
 		printf("Malloc error\n");
 		goto error;
 	}
 	
-	result = fread (output,1,flen,fr);
+	unsigned long result = fread (buffer,1,flen,fr);
 	if (result != flen) {
 		printf("Reading error\n");
 		goto error;
@@ -271,33 +305,46 @@ int main(int argc, char const *argv[])
 		goto error;
 	}
 	
-	get_elf_header(&ehdr, output);
+	get_elf_header(&ehdr, buffer);
 	//ehdr.e_entry = base;
 	
 	size_t sz = ehdr.e_phentsize * ehdr.e_phnum;
 	
 	pphdr = (Elf32_Phdr*)malloc(sz);
-	get_program_table(pphdr, &ehdr, output);
+	get_program_table(pphdr, &ehdr, buffer);
 	
-	get_Info(pphdr, &ehdr, output);
+	regen_section_header(pphdr, &ehdr, buffer);
 	
 	size_t len_gstr = strlen(g_str);
 	ehdr.e_shnum = SHDRS;
 	//倒数第一个为段名字符串段
 	ehdr.e_shstrndx = SHDRS - 1;
 	
-	//段表头紧接住段表最后一个成员--段表字符串表之后
+	//段表头紧接住段表最后一个成员--字符串段之后
 	ehdr.e_shoff = g_shdr[STRTAB].sh_offset + len_gstr + 1;
-	memcpy(output, &ehdr, sizeof(Elf32_Ehdr));
 	
-	memcpy(output + g_shdr[GOT].sh_offset, output + g_shdr[GOT].sh_offset + 0x1000, g_shdr[GOT].sh_size);
-	//memset(buffer + shdr[DATA].sh_offset, 0, shdr[DATA].sh_offset);
-	memcpy(output + g_shdr[STRTAB].sh_offset, g_strtabcontent, len_gstr + 1);
-	memcpy(output + ehdr.e_shoff, g_shdr, ehdr.e_shentsize * ehdr.e_shnum);
+	/*
+	memcpy(buffer, &ehdr, sizeof(Elf32_Ehdr));
+	
+	memcpy(buffer + g_shdr[STRTAB].sh_offset, g_strtabcontent, len_gstr + 1);
+	
+	//修复后段表头复制到目标结构
+	memcpy(buffer + ehdr.e_shoff, g_shdr, ehdr.e_shentsize * ehdr.e_shnum);
 	
 	//新文件大小=段表的偏移+新插入的所有段表头大小
 	flen = ehdr.e_shoff + SHDRS * sizeof(Elf32_Shdr);
-	fwrite(output, flen, 1, fw);
+	 */
+ 	size_t szEhdr = sizeof(Elf32_Ehdr);
+	//Elf头
+	fwrite(&ehdr, szEhdr, 1, fw);
+	//除了Elf头之外的原文件内容
+	fwrite(buffer+szEhdr, flen-szEhdr, 1, fw);
+	
+	//补上段名字符串段
+	fwrite(g_strtabcontent, len_gstr + 1, 1, fw);
+	
+	//补上段表头
+	fwrite(&g_shdr, sizeof(g_shdr), 1, fw);
 	
 error:
 	if(fw != NULL)
@@ -305,6 +352,6 @@ error:
 	if(fr != NULL)
 		fclose(fr);
 	free(pphdr);
-	free(output);
+	free(buffer);
 	return 0;
 }
