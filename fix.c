@@ -6,7 +6,7 @@ static const char* g_strtabcontent = "\0.dynsym\0.dynstr\0.hash\0.rel.dyn\0.rel.
 
 static Elf32_Word _get_off_in_shstrtab(const char *name)
 {
-	return (Elf32_Word)(strstr(g_str,".bss") - g_str);
+	return (Elf32_Word)(strstr(g_str, name) - g_str);
 }
 
 //段表项
