@@ -243,24 +243,7 @@ void regen_section_header(Elf32_Phdr *phdr, const Elf32_Ehdr *pehdr, const char 
 	g_shdr[STRTAB].sh_name = strstr(g_str, ".shstrtab") - g_str;
 	g_shdr[STRTAB].sh_type = SHT_STRTAB;
 	g_shdr[STRTAB].sh_flags = SHT_NULL;
-	g_shdr[STRTAB].sh_addr = 0;
-	
-	//找出偏移最大的一个段，不一定是最后一个，因为可能有些段无法恢复而不存在
-	int nSection = SHDRS;
-	Elf32_Word maxSection = 0;
-	int idMax = 0;
-	for (int i = 0; i < nSection; i++)
-	{
-		if (g_shdr[i].sh_offset > maxSection)
-		{
-			maxSection = g_shdr[i].sh_offset;
-			idMax = i;
-		}
-	}
-	
-	Elf32_Word strOff = g_shdr[idMax].sh_offset + g_shdr[idMax].sh_size;
-	
-	g_shdr[STRTAB].sh_offset = strOff;
+	g_shdr[STRTAB].sh_addr = 0;	//写文件的时候修正
 	g_shdr[STRTAB].sh_size = strlen(g_str) + 1;
 	g_shdr[STRTAB].sh_addralign = 1;
 }
@@ -321,7 +304,7 @@ int main(int argc, char const *argv[])
 	ehdr.e_shstrndx = SHDRS - 1;
 	
 	//段表头紧接住段表最后一个成员--字符串段之后
-	ehdr.e_shoff = g_shdr[STRTAB].sh_offset + len_gstr + 1;
+	ehdr.e_shoff = flen + len_gstr + 1;
 	
 	/*
 	memcpy(buffer, &ehdr, sizeof(Elf32_Ehdr));
@@ -337,15 +320,18 @@ int main(int argc, char const *argv[])
  	size_t szEhdr = sizeof(Elf32_Ehdr);
 	//Elf头
 	fwrite(&ehdr, szEhdr, 1, fw);
+	int n = ftell(fw);
 	//除了Elf头之外的原文件内容
 	fwrite(buffer+szEhdr, flen-szEhdr, 1, fw);
-	
 	//补上段名字符串段
-	fwrite(g_strtabcontent, len_gstr + 1, 1, fw);
+	g_shdr[STRTAB].sh_offset = flen;
 	
+	fwrite(g_strtabcontent, len_gstr + 1, 1, fw);
+	int n2 = ftell(fw);
 	//补上段表头
 	fwrite(&g_shdr, sizeof(g_shdr), 1, fw);
 	
+	int n3 = ftell(fw);
 error:
 	if(fw != NULL)
 		fclose(fw);
