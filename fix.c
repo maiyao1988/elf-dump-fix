@@ -226,14 +226,18 @@ static void regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer)
 		else
 		{
 			//.got紧接着.dynamic的假设不成立
-			//无法修复GOT，全部清零，以免影响ida分析
-			printf("warning .got is not after .dynamic can't fix .got\n");
-			memset(&g_shdr[GOT], 0, sizeof(Elf32_Shdr));
+			//虽然算不准got段的真正的地址，但是可以用__global_offset_table的地址充当.got段的地址，__global_offset_table以上的地址全部为
+			//数据段的修正地址，对分析关系不大。
+			printf("warning .got is not after .dynamic use __global_offset_table to be .got base\n");
+			g_shdr[GOT].sh_addr = g_shdr[GOT].sh_offset = __global_offset_table;
+			g_shdr[GOT].sh_size = gotEnd - __global_offset_table;
 		}
 	}
 	
 	//STRTAB地址 - SYMTAB地址 = SYMTAB大小
 	g_shdr[DYNSYM].sh_size = g_shdr[DYNSTR].sh_addr - g_shdr[DYNSYM].sh_addr;
+	//g_shdr[FINIARRAY].sh_size = g_shdr[INITARRAY].sh_addr - g_shdr[FINIARRAY].sh_addr;
+	//g_shdr[INITARRAY].sh_size = g_shdr[DYNAMIC].sh_addr - g_shdr[INITARRAY].sh_addr;
 	
 	g_shdr[PLT].sh_name = _get_off_in_shstrtab(".plt");
 	g_shdr[PLT].sh_type = SHT_PROGBITS;
