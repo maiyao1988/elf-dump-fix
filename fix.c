@@ -112,6 +112,10 @@ static void regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer)
 				g_shdr[DYNSTR].sh_entsize = 0;
 				break;
 				
+			case DT_STRSZ:
+				g_shdr[DYNSTR].sh_size = dyn[i].d_un.d_val;
+				break;
+				
 			case DT_HASH:
 				g_shdr[HASH].sh_name = _get_off_in_shstrtab(".hash");
 				g_shdr[HASH].sh_type = SHT_HASH;
@@ -139,6 +143,10 @@ static void regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer)
 				g_shdr[RELDYN].sh_entsize = 8;
 				break;
 				
+			case DT_RELSZ:
+				g_shdr[RELDYN].sh_size = dyn[i].d_un.d_val;
+				break;
+				
 			case DT_JMPREL:
 				g_shdr[RELPLT].sh_name = _get_off_in_shstrtab(".rel.plt");
 				g_shdr[RELPLT].sh_type = SHT_REL;
@@ -155,7 +163,7 @@ static void regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer)
 				g_shdr[RELPLT].sh_size = dyn[i].d_un.d_val;
 				break;
 				
-			case DT_FINI:
+			case DT_FINI_ARRAY:
 				g_shdr[FINIARRAY].sh_name = _get_off_in_shstrtab(".fini_array");
 				g_shdr[FINIARRAY].sh_type = 15;
 				g_shdr[FINIARRAY].sh_flags = SHF_WRITE | SHF_ALLOC;
@@ -165,7 +173,11 @@ static void regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer)
 				g_shdr[FINIARRAY].sh_entsize = 0;
 				break;
 				
-			case DT_INIT:
+			case DT_FINI_ARRAYSZ:
+				g_shdr[FINIARRAY].sh_size = dyn[i].d_un.d_ptr;
+				break;
+				
+			case DT_INIT_ARRAY:
 				g_shdr[INITARRAY].sh_name = _get_off_in_shstrtab(".init_array");
 				g_shdr[INITARRAY].sh_type = 14;
 				g_shdr[INITARRAY].sh_flags = SHF_WRITE | SHF_ALLOC;
@@ -175,22 +187,18 @@ static void regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer)
 				g_shdr[INITARRAY].sh_entsize = 0;
 				break;
 				
-			case DT_RELSZ:
-				g_shdr[RELDYN].sh_size = dyn[i].d_un.d_val;
-				break;
-				
-			case DT_STRSZ:
-				g_shdr[DYNSTR].sh_size = dyn[i].d_un.d_val;
+			case DT_INIT_ARRAYSZ:
+				g_shdr[INITARRAY].sh_size = dyn[i].d_un.d_ptr;
 				break;
 				
 			case DT_PLTGOT:
+				__global_offset_table = dyn[i].d_un.d_ptr;
 				g_shdr[GOT].sh_name = _get_off_in_shstrtab(".got");
 				g_shdr[GOT].sh_type = SHT_PROGBITS;
 				g_shdr[GOT].sh_flags = SHF_WRITE | SHF_ALLOC;
 				//TODO:这里基于假设.got一定在.dynamic段之后，并不可靠，王者荣耀libGameCore.so就是例外
 				g_shdr[GOT].sh_addr = g_shdr[DYNAMIC].sh_addr + g_shdr[DYNAMIC].sh_size;
 				g_shdr[GOT].sh_offset = g_shdr[GOT].sh_addr;
-				__global_offset_table = dyn[i].d_un.d_ptr;
 				g_shdr[GOT].sh_addralign = 4;
 				break;
 		}
@@ -198,21 +206,22 @@ static void regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer)
 	if (__global_offset_table)
 	{
 		Elf32_Word gotBase = g_shdr[GOT].sh_addr;
-		Elf32_Word gotEnd = __global_offset_table + 4 * (g_shdr[RELPLT].sh_size) / sizeof(Elf32_Rel) + 3 * sizeof(int);
+		unsigned nRelPlt = g_shdr[RELPLT].sh_size / sizeof(Elf32_Rel);
 		
-		//RELPLT有多少个成员__global_offset_table里面就有多少个成员
+		//__global_offset_table里面成员个数等于RELPLT的成员数+3个固定成员
+		//这种计算方式不可靠，根据libGameCore.so分析，nRelPlt比数量比实际GOT数量多10个，暂时没发现这十个成员的特殊性
+		Elf32_Word gotEnd = __global_offset_table + 4 * (nRelPlt + 3);
+		
+		g_shdr[DATA].sh_name = _get_off_in_shstrtab(".data");
+		g_shdr[DATA].sh_type = SHT_PROGBITS;
+		g_shdr[DATA].sh_flags = SHF_WRITE | SHF_ALLOC;
+		g_shdr[DATA].sh_addr = gotEnd;
+		g_shdr[DATA].sh_offset = g_shdr[DATA].sh_addr;
+		g_shdr[DATA].sh_size = load.p_vaddr + load.p_filesz - g_shdr[DATA].sh_addr;
+		g_shdr[DATA].sh_addralign = 4;
 		if (gotEnd > gotBase)
 		{
 			g_shdr[GOT].sh_size = gotEnd - gotBase;
-			//假定DATA紧接着GOT
-			//此时GOT才是可靠的值，才能用来修复
-			g_shdr[DATA].sh_name = _get_off_in_shstrtab(".data");
-			g_shdr[DATA].sh_type = SHT_PROGBITS;
-			g_shdr[DATA].sh_flags = SHF_WRITE | SHF_ALLOC;
-			g_shdr[DATA].sh_addr = gotEnd;
-			g_shdr[DATA].sh_offset = g_shdr[DATA].sh_addr;
-			g_shdr[DATA].sh_size = load.p_vaddr + load.p_filesz - g_shdr[DATA].sh_addr;
-			g_shdr[DATA].sh_addralign = 4;
 		}
 		else
 		{
@@ -225,9 +234,6 @@ static void regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer)
 	
 	//STRTAB地址 - SYMTAB地址 = SYMTAB大小
 	g_shdr[DYNSYM].sh_size = g_shdr[DYNSTR].sh_addr - g_shdr[DYNSYM].sh_addr;
-	
-	g_shdr[FINIARRAY].sh_size = g_shdr[INITARRAY].sh_addr - g_shdr[FINIARRAY].sh_addr;
-	g_shdr[INITARRAY].sh_size = g_shdr[DYNAMIC].sh_addr - g_shdr[INITARRAY].sh_addr;
 	
 	g_shdr[PLT].sh_name = _get_off_in_shstrtab(".plt");
 	g_shdr[PLT].sh_type = SHT_PROGBITS;
@@ -256,17 +262,24 @@ int main(int argc, char const *argv[])
 {
 	FILE *fr = NULL, *fw = NULL;
 	char *buffer = NULL;
-	Elf32_Ehdr ehdr = {0};
 	
 	if (argc < 2) {
-		printf("<src_so_path> [<out_so_path>]\n");
+		printf("<src_so_path> [base_addr_in_memory_in_hex] [<out_so_path>]\n");
 		return -1;
 	}
 	const char *openPath = argv[1];
 	const char *outPutPath = "fix.so";
+	
+	Elf32_Word base = 0;
 	if (argc > 2)
 	{
+		base = (Elf32_Word)strtoul(argv[2], 0, 16);
 		outPutPath = argv[2];
+	}
+	
+	if (argc > 3)
+	{
+		outPutPath = argv[3];
 	}
 	fr = fopen(openPath,"rb");
 	
@@ -288,38 +301,37 @@ int main(int argc, char const *argv[])
 		printf("Reading %s error\n", openPath);
 		goto error;
 	}
-	
 	fw = fopen(outPutPath, "wb");
 	if(fw == NULL) {
 		printf("Open failed: %s\n", outPutPath);
 		goto error;
 	}
 	
+	Elf32_Ehdr ehdr = {0};
 	get_elf_header(&ehdr, buffer);
-	//ehdr.e_entry = base;
 	
 	regen_section_header(&ehdr, buffer);
 	
-	size_t len_gstr = strlen(g_str);
+	size_t shstrtabsz = strlen(g_str)+1;
+	ehdr.e_entry = base;
 	ehdr.e_shnum = SHDRS;
 	//倒数第一个为段名字符串段
 	ehdr.e_shstrndx = SHDRS - 1;
 	
+	//就在原来文件最后加上段名字符串段
+	g_shdr[STRTAB].sh_offset = (Elf32_Off)flen;
 	//段表头紧接住段表最后一个成员--字符串段之后
-	ehdr.e_shoff = (Elf32_Off)(flen + len_gstr + 1);
-	
+	ehdr.e_shoff = (Elf32_Off)(flen + shstrtabsz);
  	size_t szEhdr = sizeof(Elf32_Ehdr);
 	//Elf头
 	fwrite(&ehdr, szEhdr, 1, fw);
 	//除了Elf头之外的原文件内容
 	fwrite(buffer+szEhdr, flen-szEhdr, 1, fw);
 	//补上段名字符串段
-	g_shdr[STRTAB].sh_offset = (Elf32_Off)flen;
-	
-	fwrite(g_strtabcontent, len_gstr + 1, 1, fw);
+	fwrite(g_strtabcontent, shstrtabsz, 1, fw);
 	//补上段表头
 	fwrite(&g_shdr, sizeof(g_shdr), 1, fw);
-	printf("fixed so has write to %s", outPutPath);
+	printf("fixed so has write to %s\n", outPutPath);
 error:
 	if(fw != NULL)
 		fclose(fw);
