@@ -201,6 +201,14 @@ static void regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer)
 				g_shdr[GOT].sh_offset = g_shdr[GOT].sh_addr;
 				g_shdr[GOT].sh_addralign = 4;
 				break;
+			case DT_INIT:
+				//找到init段代码，但是无法知道有多长，只好做一个警告，提醒使用者init段存在，脱壳代码可能存在这里
+				printf("warning .init exist at 0x%08x\n", dyn[i].d_un.d_ptr);
+				break;
+			case DT_TEXTREL:
+				//地址相关的so，警告，暂时不做处理
+				printf("warning DT_TEXTREL found, so is address depend.\n");
+				break;
 		}
 	}
 	if (__global_offset_table)
@@ -236,8 +244,6 @@ static void regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer)
 	
 	//STRTAB地址 - SYMTAB地址 = SYMTAB大小
 	g_shdr[DYNSYM].sh_size = g_shdr[DYNSTR].sh_addr - g_shdr[DYNSYM].sh_addr;
-	//g_shdr[FINIARRAY].sh_size = g_shdr[INITARRAY].sh_addr - g_shdr[FINIARRAY].sh_addr;
-	//g_shdr[INITARRAY].sh_size = g_shdr[DYNAMIC].sh_addr - g_shdr[INITARRAY].sh_addr;
 	
 	g_shdr[PLT].sh_name = _get_off_in_shstrtab(".plt");
 	g_shdr[PLT].sh_type = SHT_PROGBITS;

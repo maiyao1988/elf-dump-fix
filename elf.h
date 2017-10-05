@@ -105,8 +105,11 @@ typedef int64_t  Elf64_Sxword;
 #define DT_RELAENT	9
 #define DT_STRSZ	10
 #define DT_SYMENT	11
-#define DT_INIT		25
-#define DT_FINI		26
+#define DT_INIT 0x0c
+#define DT_INIT_ARRAY 0x19
+#define DT_FINI_ARRAY 0x1a
+#define DT_INIT_ARRAYSZ 0x1b
+#define DT_FINI_ARRAYSZ 0x1c
 #define DT_SONAME	14
 #define DT_RPATH 	15
 #define DT_SYMBOLIC	16
