@@ -49,6 +49,8 @@ static void regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer)
 				g_shdr[BSS].sh_type = SHT_NOBITS;
 				g_shdr[BSS].sh_flags = SHF_WRITE | SHF_ALLOC;
 				g_shdr[BSS].sh_addr =  phdr[i].p_vaddr + phdr[i].p_filesz;
+				//因为bss段映射到到load节的最后，加上so里面文件大小与内存映射大小不一致的基本只有bss，所以内存多出来的内容基本就是bss段的大小。
+				g_shdr[BSS].sh_size = phdr[i].p_memsz - phdr[i].p_filesz;
 				g_shdr[BSS].sh_offset = g_shdr[BSS].sh_addr;
 				g_shdr[BSS].sh_addralign = 1;
 			}
