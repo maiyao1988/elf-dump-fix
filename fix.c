@@ -33,18 +33,19 @@ static void regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer)
 	Elf32_Phdr *phdr = (Elf32_Phdr*)(buffer + pehdr->e_phoff);
 	int ph_num = pehdr->e_phnum;
 	int dyn_size = 0, dyn_off = 0;
-	int nbucket = 0, nchain = 0;
 	int i = 0;
-	
+	int loadIndex = 0;
 	for(;i < ph_num;i++) {
 		//段在文件中的偏移修正，因为从内存dump出来的文件偏移就是在内存的偏移
 		phdr[i].p_offset =  phdr[i].p_vaddr;
 		Elf32_Word p_type = phdr[i].p_type;
 		if (phdr[i].p_type == PT_LOAD) {
-			//实际上取的是最后一个PT_LOAD
-			if (phdr[i].p_vaddr > 0x0) {
+			loadIndex++;
+			if (phdr[i].p_vaddr > 0x0 && loadIndex == 2) {
+				//BSS一般都在第二个load节的最后
 				load = phdr[i];
 				g_shdr[BSS].sh_name = _get_off_in_shstrtab(".bss");
+				//BSS大小无所谓
 				g_shdr[BSS].sh_type = SHT_NOBITS;
 				g_shdr[BSS].sh_flags = SHF_WRITE | SHF_ALLOC;
 				g_shdr[BSS].sh_addr =  phdr[i].p_vaddr + phdr[i].p_filesz;
@@ -117,6 +118,8 @@ static void regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer)
 				break;
 				
 			case DT_HASH:
+			{
+				int nbucket = 0, nchain = 0;
 				g_shdr[HASH].sh_name = _get_off_in_shstrtab(".hash");
 				g_shdr[HASH].sh_type = SHT_HASH;
 				g_shdr[HASH].sh_flags = SHF_ALLOC;
@@ -130,7 +133,7 @@ static void regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer)
 				g_shdr[HASH].sh_addralign = 4;
 				g_shdr[HASH].sh_entsize = 4;
 				break;
-				
+			}
 			case DT_REL:
 				g_shdr[RELDYN].sh_name = _get_off_in_shstrtab(".rel.dyn");
 				g_shdr[RELDYN].sh_type = SHT_REL;
@@ -323,7 +326,8 @@ int main(int argc, char const *argv[])
 	regen_section_header(&ehdr, buffer);
 	
 	size_t shstrtabsz = strlen(g_str)+1;
-	ehdr.e_entry = base;
+	if (base)
+		ehdr.e_entry = base;
 	ehdr.e_shnum = SHDRS;
 	//倒数第一个为段名字符串段
 	ehdr.e_shstrndx = SHDRS - 1;
