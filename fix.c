@@ -52,7 +52,7 @@ static void regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer)
 				//因为bss段映射到到load节的最后，加上so里面文件大小与内存映射大小不一致的基本只有bss，所以内存多出来的内容基本就是bss段的大小。
 				g_shdr[BSS].sh_size = phdr[i].p_memsz - phdr[i].p_filesz;
 				g_shdr[BSS].sh_offset = g_shdr[BSS].sh_addr;
-				g_shdr[BSS].sh_addralign = 1;
+				g_shdr[BSS].sh_addralign = 4;
 			}
 		}
 		else if(p_type == PT_DYNAMIC) {
@@ -222,8 +222,11 @@ static void regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer)
 		unsigned nRelPlt = g_shdr[RELPLT].sh_size / sizeof(Elf32_Rel);
 		
 		//__global_offset_table里面成员个数等于RELPLT的成员数+3个固定成员
-		//这种计算方式不可靠，根据libGameCore.so分析，nRelPlt比数量比实际GOT数量多10个，暂时没发现这十个成员的特殊性
 		Elf32_Word gotEnd = __global_offset_table + 4 * (nRelPlt + 3);
+		
+		//上面那种方式计算不可靠，根据libGameCore.so分析，nRelPlt比数量比实际GOT数量多10个，暂时没发现这十个成员的特殊性
+		//.got的结尾就是.data的开始，根据经验，data的地址总是与0x1000对齐。以此来修正地址
+	 	gotEnd = gotEnd & ~0x0FFF;
 		
 		g_shdr[DATA].sh_name = _get_off_in_shstrtab(".data");
 		g_shdr[DATA].sh_type = SHT_PROGBITS;
@@ -241,7 +244,7 @@ static void regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer)
 			//.got紧接着.dynamic的假设不成立
 			//虽然算不准got段的真正的地址，但是可以用__global_offset_table的地址充当.got段的地址，__global_offset_table以上的地址全部为
 			//数据段的修正地址，对分析关系不大。
-			printf("warning .got is not after .dynamic use __global_offset_table to be .got base\n");
+			printf("warning .got is not after .dynamic use __global_offset_table as .got base\n");
 			g_shdr[GOT].sh_addr = g_shdr[GOT].sh_offset = __global_offset_table;
 			g_shdr[GOT].sh_size = gotEnd - __global_offset_table;
 		}
