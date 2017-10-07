@@ -336,11 +336,13 @@ int main(int argc, char const *argv[])
 	ehdr.e_shnum = SHDRS;
 	//倒数第一个为段名字符串段
 	ehdr.e_shstrndx = SHDRS - 1;
+	ehdr.e_shentsize = sizeof(Elf32_Shdr);
+	
+	//段表头紧接住段表最后一个成员--字符串段之后
+	ehdr.e_shoff = (Elf32_Off)(flen + shstrtabsz);
 	
 	//就在原来文件最后加上段名字符串段
 	g_shdr[STRTAB].sh_offset = (Elf32_Off)flen;
-	//段表头紧接住段表最后一个成员--字符串段之后
-	ehdr.e_shoff = (Elf32_Off)(flen + shstrtabsz);
  	size_t szEhdr = sizeof(Elf32_Ehdr);
 	//Elf头
 	fwrite(&ehdr, szEhdr, 1, fw);
