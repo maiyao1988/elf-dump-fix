@@ -25,8 +25,8 @@ int dumpMemory(int pid, void *begin, void *end, const char *outPath) {
     size_t sz = (size_t)end - (size_t)begin;
     unsigned char *mem = (unsigned char*)malloc(sz);
     if (!mem) {
-        return -2;
         fclose(fMem);
+        return -2;
     }
     memset(mem, 0, sz);
     size_t off1 = (size_t)begin;

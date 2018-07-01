@@ -14,9 +14,9 @@ static int __main(int argc, char *argv[]) {
     }
 
     int pid = strtol(argv[1], 0, 10);
-    void *p1 = 0, *p2 = 0;
-    sscanf(argv[2], "%p", &p1);
-    sscanf(argv[3], "%p", &p2);
+    void *begin = 0, *end = 0;
+    sscanf(argv[2], "%p", &begin);
+    sscanf(argv[3], "%p", &end);
     const char *outPath = argv[4];
     char tmpPath[255] = {0};
     sprintf(tmpPath, "%s.tmp", outPath);
@@ -25,12 +25,12 @@ static int __main(int argc, char *argv[]) {
         printf("stop process %d before dump\n", pid);
         kill(pid, SIGSTOP);
     }
-    dumpMemory(pid, p1, p2, tmpPath);
+    dumpMemory(pid, begin, end, tmpPath);
     if (pid != 0) {
         printf("resume process %d after dump\n", pid);
         kill(pid, SIGCONT);
     }
-    fix_so(tmpPath, outPath, 0);
+    fix_so(tmpPath, outPath, begin);
     return 0;
 }
 
