@@ -1,7 +1,6 @@
 //
 // Created by 麦耀 on 2018/6/30.
 //
-#include <jni.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

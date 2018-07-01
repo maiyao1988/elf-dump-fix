@@ -52,7 +52,7 @@ static int __main(int argc, char *argv[]) {
         printf("resume process %d after dump\n", pid);
         kill(pid, SIGCONT);
     }
-    fix_so(tmpPath, outPath, begin);
+    fix_so(tmpPath, outPath, (unsigned)begin);
     return 0;
 }
 

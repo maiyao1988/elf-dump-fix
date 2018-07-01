@@ -283,7 +283,7 @@ static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer)
 	g_shdr[STRTAB].sh_addralign = 1;
 }
 
-int fix_so(const char *openPath, const char *outPutPath, void *ptrbase)
+int fix_so(const char *openPath, const char *outPutPath, unsigned ptrbase)
 {
 	FILE *fr = NULL, *fw = NULL;
 	char *buffer = NULL;
