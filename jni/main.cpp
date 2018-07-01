@@ -2,13 +2,15 @@
 // Created by 麦耀 on 2018/7/1.
 //
 #include <stdio.h>
+#include <unistd.h>
 #include "fix.h"
 
 int dumpMemory(int pid, void *begin, void *end, const char *outPath);
 
 static int __main(int argc, char *argv[]) {
     if (argc < 5) {
-        printf("%s <pid> <base_hex> <end_hex> <outPath>", argv[0]);
+        printf("%s <pid> <base_hex> <end_hex> <outPath>\n", argv[0]);
+        return -1;
     }
 
     int pid = strtol(argv[1], 0, 10);
@@ -18,7 +20,16 @@ static int __main(int argc, char *argv[]) {
     const char *outPath = argv[4];
     char tmpPath[255] = {0};
     sprintf(tmpPath, "%s.tmp", outPath);
+
+    if (pid != 0) {
+        printf("stop process %d before dump\n", pid);
+        kill(pid, SIGSTOP);
+    }
     dumpMemory(pid, p1, p2, tmpPath);
+    if (pid != 0) {
+        printf("resume process %d after dump\n", pid);
+        kill(pid, SIGCONT);
+    }
     fix_so(tmpPath, outPath, 0);
     return 0;
 }
@@ -38,15 +49,6 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
     }
 
     //0xb4509000 0xb47fe000
-    /*
-    const char *soPath = "/sdcard/libart1.so";
-    dumpMemory(0, (void*)0xb4509000 , (void*)0xb47fe000, soPath);
-
-    const char *soFixPath = "/sdcard/libart_fix.so";
-
-    fix_so(soPath, soFixPath, 0);
-     */
-    /* success -- return valid version number */
 
     int argc=5;
     char *argv[] = {"dump", "0", "0xb4509000", "0xb47fe000", "/sdcard/libart_fix.so"};
@@ -56,5 +58,4 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
 
     return result;
 }
-
 

@@ -50,7 +50,7 @@ int dumpMemory(int pid, void *begin, void *end, const char *outPath) {
     FILE *fOut = fopen(outPath, "w");
 
     size_t szW = fwrite(mem, 1, sz, fOut);
-    printf("%d writed", (unsigned)szW);
+    printf("%d writed\n", (unsigned)szW);
     fclose(fOut);
 
     free(mem);
