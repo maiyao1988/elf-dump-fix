@@ -26,3 +26,5 @@
 #define BSS 14
 #define STRTAB 15
 //
+
+int fix_so(const char *openPath, const char *outPutPath, void *ptrbase);
