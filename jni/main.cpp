@@ -7,6 +7,16 @@
 
 int dumpMemory(int pid, void *begin, void *end, const char *outPath);
 
+static const char *_sandardlizeAddrs(char *buf, const char *addr) {
+    if (addr[0] != '0' || addr[1] != 'x') {
+        sprintf(buf, "0x%s", addr);
+        return buf;
+    }
+    else{
+        return addr;
+    }
+}
+
 static int __main(int argc, char *argv[]) {
     if (argc < 5) {
         printf("%s <pid> <base_hex> <end_hex> <outPath>\n", argv[0]);
@@ -15,8 +25,16 @@ static int __main(int argc, char *argv[]) {
 
     int pid = strtol(argv[1], 0, 10);
     void *begin = 0, *end = 0;
-    sscanf(argv[2], "%p", &begin);
-    sscanf(argv[3], "%p", &end);
+    char bufBegin[255] = {0};
+    const char *strBegin = _sandardlizeAddrs(bufBegin, argv[2]);
+
+    sscanf(strBegin, "%p", &begin);
+
+    char bufEnd[255] = {0};
+    const char *strEnd = _sandardlizeAddrs(bufEnd, argv[3]);
+
+    sscanf(strEnd, "%p", &end);
+
     const char *outPath = argv[4];
     char tmpPath[255] = {0};
     sprintf(tmpPath, "%s.tmp", outPath);
@@ -25,7 +43,11 @@ static int __main(int argc, char *argv[]) {
         printf("stop process %d before dump\n", pid);
         kill(pid, SIGSTOP);
     }
-    dumpMemory(pid, begin, end, tmpPath);
+    int res = dumpMemory(pid, begin, end, tmpPath);
+    if (res < 0) {
+        printf("error dumpMemory return %d, did you run in root, did pid exist?\n", res);
+        return res;
+    }
     if (pid != 0) {
         printf("resume process %d after dump\n", pid);
         kill(pid, SIGCONT);
