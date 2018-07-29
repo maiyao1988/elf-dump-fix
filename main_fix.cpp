@@ -20,7 +20,6 @@ int main(int argc, char *argv[]) {
     if (argc > 2)
     {
         base = strtoul(argv[2], 0, 16);
-        outPutPath = argv[2];
     }
     
     if (argc > 3)

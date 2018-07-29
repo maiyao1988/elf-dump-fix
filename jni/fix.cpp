@@ -26,6 +26,30 @@ static long _get_file_len(FILE *p)
 	return fsize;
 }
 
+static void _fix_relative_rebase(const char *buffer, size_t bufSize, Elf32_Word imageBase)
+{
+    Elf32_Addr addr = g_shdr[RELDYN].sh_addr;
+    size_t sz = g_shdr[RELDYN].sh_size;
+    size_t n = sz / sizeof(Elf32_Rel);
+    Elf32_Rel *rel = (Elf32_Rel*)(buffer+addr);
+    const char *border = buffer+bufSize;
+    for (size_t i = 0; i < n; ++i,++rel)
+    {
+        int type = ELF32_R_TYPE(rel->r_info);
+        //unsigned sym = (unsigned)ELF32_R_SYM(rel->r_info);
+        if (type == R_ARM_RELATIVE)
+        {
+            Elf32_Addr off = rel->r_offset;
+            unsigned *offIntBuf = (unsigned*)(buffer+off);
+            if (border < (const char*)offIntBuf) {
+                printf("relocation off %x invalid, out of border...", off);
+            }
+            unsigned addrNow = *offIntBuf;
+            addrNow -= imageBase;
+            (*offIntBuf) = addrNow;
+        }
+    }
+}
 
 static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer)
 {
@@ -325,6 +349,8 @@ int fix_so(const char *openPath, const char *outPutPath, unsigned ptrbase)
 	_get_elf_header(&ehdr, buffer);
 
 	_regen_section_header(&ehdr, buffer);
+    
+    _fix_relative_rebase(buffer, flen, ptrbase);
 	
 	size_t shstrtabsz = strlen(g_str)+1;
 	if (base)
