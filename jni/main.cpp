@@ -55,7 +55,7 @@ static int __main(int argc, char *argv[]) {
     }
     chmod(tmpPath, 0666);
     printf("try fix %s\n", tmpPath);
-    fix_so(tmpPath, outPath, 0);
+    fix_so(tmpPath, outPath, (unsigned)begin);
     printf("end fix %s output to ", tmpPath, outPath);
     chmod(outPath, 0666);
 
