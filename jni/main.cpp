@@ -20,7 +20,7 @@ static const char *_sandardlizeAddrs(char *buf, const char *addr) {
 
 static int __main(int argc, char *argv[]) {
     if (argc < 5) {
-        printf("%s <pid> <base_hex> <end_hex> <outPath>\n", argv[0]);
+        printf("%s <pid> <base_hex> <end_hex> <outPath> [is-stop-process-before-dump] [is-fix-so-after-dump]\n", argv[0]);
         return -1;
     }
 
@@ -40,24 +40,38 @@ static int __main(int argc, char *argv[]) {
     char tmpPath[255] = {0};
     sprintf(tmpPath, "%s.tmp", outPath);
 
-    if (pid != 0) {
+    bool stopBeforeDump = false;
+    if (argc > 5) {
+        stopBeforeDump = argv[5][0] != '0';
+    }
+    if (pid != 0 && stopBeforeDump) {
         printf("stop process %d before dump\n", pid);
-        //kill(pid, SIGSTOP);
+        kill(pid, SIGSTOP);
     }
     int res = dumpMemory(pid, begin, end, tmpPath);
     if (res < 0) {
         printf("error dumpMemory return %d, did you run in root, did pid exist?\n", res);
         return res;
     }
-    if (pid != 0) {
+    if (pid != 0 && stopBeforeDump) {
         printf("resume process %d after dump\n", pid);
-        //kill(pid, SIGCONT);
+        kill(pid, SIGCONT);
     }
     chmod(tmpPath, 0666);
-    printf("try fix %s\n", tmpPath);
-    fix_so(tmpPath, outPath, (unsigned)begin);
-    printf("end fix %s output to ", tmpPath, outPath);
-    chmod(outPath, 0666);
+    bool isFixSo = true;
+    if (argc > 6) {
+        isFixSo = argv[6][0] != '0';
+    }
+
+    if (isFixSo) {
+        printf("try fix %s\n", tmpPath);
+        fix_so(tmpPath, outPath, (unsigned) begin);
+        printf("end fix %s output to ", tmpPath, outPath);
+        chmod(outPath, 0666);
+    }
+    else {
+        rename(tmpPath, outPath);
+    }
 
     return 0;
 }
