@@ -324,6 +324,7 @@ int fix_so(const char *openPath, const char *outPutPath, unsigned ptrbase)
     fread(buf, 1, 4, fr);
     if (buf[0] != 0x7f || buf[1] != 'E' || buf[2] != 'L' || buf[3] != 'F') {
         printf("error header is not .ELF!!!");
+        fclose(fr);
 		return -4;
     }
 	fseek(fr, 0, SEEK_SET);
