@@ -42,7 +42,8 @@ static void _fix_relative_rebase(const char *buffer, size_t bufSize, Elf32_Word 
             Elf32_Addr off = rel->r_offset;
             unsigned *offIntBuf = (unsigned*)(buffer+off);
             if (border < (const char*)offIntBuf) {
-                printf("relocation off %x invalid, out of border...", off);
+                printf("relocation off %x invalid, out of border...\n", off);
+				continue;
             }
             unsigned addrNow = *offIntBuf;
             addrNow -= imageBase;
@@ -58,7 +59,8 @@ static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer)
 	int ph_num = pehdr->e_phnum;
 	int dyn_size = 0, dyn_off = 0;
 	int loadIndex = 0;
-	//TODO:所有相对于module base的地址都要减去这个地址
+
+	//所有相对于module base的地址都要减去这个地址
     size_t minLoad = 0;
 	for(int i = 0;i < ph_num;i++) {
         if (phdr[i].p_type == PT_LOAD) {
@@ -70,6 +72,7 @@ static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer)
 	for(int i = 0;i < ph_num;i++) {
 		//段在文件中的偏移修正，因为从内存dump出来的文件偏移就是在内存的偏移
 		phdr[i].p_offset =  phdr[i].p_vaddr;
+		phdr[i].p_filesz = phdr[i].p_memsz;
 		Elf32_Word p_type = phdr[i].p_type;
 		if (phdr[i].p_type == PT_LOAD) {
 			loadIndex++;
