@@ -3,6 +3,7 @@
 //
 #include <stdio.h>
 #include <unistd.h>
+#include <sys/stat.h>
 #include "fix.h"
 
 int dumpMemory(int pid, void *begin, void *end, const char *outPath);
@@ -41,7 +42,7 @@ static int __main(int argc, char *argv[]) {
 
     if (pid != 0) {
         printf("stop process %d before dump\n", pid);
-        kill(pid, SIGSTOP);
+        //kill(pid, SIGSTOP);
     }
     int res = dumpMemory(pid, begin, end, tmpPath);
     if (res < 0) {
@@ -50,9 +51,14 @@ static int __main(int argc, char *argv[]) {
     }
     if (pid != 0) {
         printf("resume process %d after dump\n", pid);
-        kill(pid, SIGCONT);
+        //kill(pid, SIGCONT);
     }
-    fix_so(tmpPath, outPath, (unsigned)begin);
+    chmod(tmpPath, 0666);
+    printf("try fix %s\n", tmpPath);
+    fix_so(tmpPath, outPath, 0);
+    printf("end fix %s output to ", tmpPath, outPath);
+    chmod(outPath, 0666);
+
     return 0;
 }
 
