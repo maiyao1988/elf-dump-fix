@@ -326,6 +326,7 @@ int fix_so(const char *openPath, const char *outPutPath, unsigned ptrbase)
         printf("error header is not .ELF!!!");
 		return -4;
     }
+	fseek(fr, 0, SEEK_SET);
 	
 	size_t flen = _get_file_len(fr);
 	
