@@ -313,9 +313,6 @@ static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer)
 int fix_so(const char *openPath, const char *outPutPath, unsigned ptrbase)
 {
 	FILE *fr = NULL, *fw = NULL;
-	char *buffer = NULL;
-
-	Elf32_Word base = (Elf32_Word)ptrbase;
 
 	fr = fopen(openPath,"rb");
 	
@@ -334,7 +331,7 @@ int fix_so(const char *openPath, const char *outPutPath, unsigned ptrbase)
 	
 	size_t flen = _get_file_len(fr);
 	
-	buffer = (char*)malloc(flen);
+	char *buffer = (char*)malloc(flen);
 	if (buffer == NULL) {
 		printf("Malloc error\n");
 		fclose(fr);
@@ -364,8 +361,7 @@ int fix_so(const char *openPath, const char *outPutPath, unsigned ptrbase)
     _fix_relative_rebase(buffer, flen, ptrbase);
 	
 	size_t shstrtabsz = strlen(g_str)+1;
-	if (base)
-		ehdr.e_entry = base;
+	ehdr.e_entry = ptrbase;
 	ehdr.e_shnum = SHDRS;
 	//倒数第一个为段名字符串段
 	ehdr.e_shstrndx = SHDRS - 1;
