@@ -323,7 +323,7 @@ int fix_so(const char *openPath, const char *outPutPath, unsigned ptrbase)
     char buf[4] = {0};
     fread(buf, 1, 4, fr);
     if (buf[0] != 0x7f || buf[1] != 'E' || buf[2] != 'L' || buf[3] != 'F') {
-        printf("error header is not .ELF!!!");
+        printf("error header is not .ELF!!!\n");
         fclose(fr);
 		return -5;
     }
