@@ -57,14 +57,16 @@ int dumpMemory(int pid, void *begin, void *end, const char *outPath) {
             unsigned char byte = 0;
             ssize_t szB = read(fMem, &byte, 1);
             if (szB < 1) {
-                lseek64(fMem, szRead+i, SEEK_SET);
+                lseek64(fMem, 1, SEEK_CUR);
                 continue;
             }
             mem[szRead+i] = byte;
         }
     }
-    int fOut = open(outPath, O_WRONLY);
-
+    int fOut = open(outPath, O_WRONLY|O_CREAT, 0666);
+	if (fOut < 0) {
+		printf("open %s error:%s\n", outPath, strerror(errno));
+	}
     ssize_t szW = write(fOut, mem, sz);
     printf("%d writed\n", (unsigned)szW);
     close(fOut);

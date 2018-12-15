@@ -66,7 +66,7 @@ static int __main(int argc, char *argv[]) {
     if (isFixSo) {
         printf("try fix %s\n", tmpPath);
         fix_so(tmpPath, outPath, (unsigned) begin);
-        printf("end fix %s output to %s", tmpPath, outPath);
+        printf("end fix %s output to %s\n", tmpPath, outPath);
         chmod(outPath, 0666);
     }
     else {
