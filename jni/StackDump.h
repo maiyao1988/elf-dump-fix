@@ -18,14 +18,22 @@ namespace {
         for (size_t idx = 0; idx < count; ++idx) {
             const void *addr = buffer[idx];
             const char *symbol = "";
+            const char *module = "";
+            void *moduleBase = 0;
 
             Dl_info info;
-            if (dladdr(addr, &info) && info.dli_sname) {
-                symbol = info.dli_sname;
+            if (dladdr(addr, &info)) {
+                if(info.dli_sname) {
+                    symbol = info.dli_sname;
+                }
+                if (info.dli_fname) {
+                    module =info.dli_fname;
+                }
+                moduleBase = info.dli_fbase;
             }
 
             //os << "  #" << std::setw(2) << idx << ": " << addr << "  " << symbol << "\n";
-            __android_log_print(ANDROID_LOG_INFO, tag, "#%02d:%p  %-20s", idx, addr, symbol);
+            __android_log_print(ANDROID_LOG_INFO, tag, "#%02d:%p %-20s %p %-10s", idx, addr, symbol, moduleBase, module);
         }
     }
 
