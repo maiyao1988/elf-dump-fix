@@ -52,7 +52,7 @@ static void _fix_relative_rebase(const char *buffer, size_t bufSize, Elf32_Word 
     }
 }
 
-static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer)
+static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer, size_t len)
 {
 	Elf32_Phdr load = { 0 };
 	Elf32_Phdr *phdr = (Elf32_Phdr*)(buffer + pehdr->e_phoff);
@@ -285,7 +285,34 @@ static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer)
 	}
 	
 	//STRTAB地址 - SYMTAB地址 = SYMTAB大小
-	g_shdr[DYNSYM].sh_size = g_shdr[DYNSTR].sh_addr - g_shdr[DYNSYM].sh_addr;
+	//g_shdr[DYNSYM].sh_size = g_shdr[DYNSTR].sh_addr - g_shdr[DYNSYM].sh_addr;
+	const char *strbase = buffer+g_shdr[DYNSTR].sh_addr;
+	const char *strend = strbase+g_shdr[DYNSTR].sh_size;
+	const char *symbase = buffer+g_shdr[DYNSYM].sh_addr;
+	unsigned symCount = 0;
+	Elf32_Sym *sym = (Elf32_Sym *)symbase;
+	while(1) {
+		//符号在符号表里面的偏移，不用考虑文件与内存加载之间bias
+        size_t off = sym->st_name;
+        const char *symName = strbase + off;
+        size_t symOff = sym->st_value;
+		size_t symValue = (size_t)buffer + symOff;
+		printf("symName=%p strbase=%p strend=%p\n", symName, strbase, strend);
+		if ((size_t)symName < (size_t)strbase || (size_t)symName > (size_t)strend) {
+			//动态表的符号偏移不在动态符号表之内，说明非法，已经没有合法的动态符号了。
+			//printf("break 1 symName=%s strbase");
+			break;
+		}
+		if (symValue< (size_t)buffer || symValue > (size_t)(buffer+len)) {
+			//动态表指向文件偏移不在文件范围之内，说明非法，已经没有合法的动态符号了。
+			break;
+		}
+		symCount++;
+		sym++;
+	}       
+   
+	//printf("size %d addr %08x\n", g_shdr[DYNSTR].sh_size, g_shdr[DYNSTR].sh_addr);
+	g_shdr[DYNSYM].sh_size = symCount * 16;
 	
 	g_shdr[PLT].sh_name = _get_off_in_shstrtab(".plt");
 	g_shdr[PLT].sh_type = SHT_PROGBITS;
@@ -356,7 +383,7 @@ int fix_so(const char *openPath, const char *outPutPath, unsigned ptrbase)
 	Elf32_Ehdr ehdr = {0};
 	_get_elf_header(&ehdr, buffer);
 
-	_regen_section_header(&ehdr, buffer);
+	_regen_section_header(&ehdr, buffer, flen);
     
     _fix_relative_rebase(buffer, flen, ptrbase);
 	
