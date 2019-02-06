@@ -297,7 +297,7 @@ static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer, s
         const char *symName = strbase + off;
         size_t symOff = sym->st_value;
 		size_t symValue = (size_t)buffer + symOff;
-		printf("symName=%p strbase=%p strend=%p\n", symName, strbase, strend);
+		//printf("symName=%p strbase=%p strend=%p\n", symName, strbase, strend);
 		if ((size_t)symName < (size_t)strbase || (size_t)symName > (size_t)strend) {
 			//动态表的符号偏移不在动态符号表之内，说明非法，已经没有合法的动态符号了。
 			//printf("break 1 symName=%s strbase");
