@@ -7,7 +7,7 @@
 //
 #include <stdio.h>
 #include <stdlib.h>
-#include "app/jni/fix.h"
+#include "app/jni/ElfFixSection/fix.h"
 
 int main(int argc, char *argv[]) {
     if (argc < 4) {
