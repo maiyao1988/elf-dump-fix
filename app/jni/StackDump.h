@@ -2,17 +2,16 @@
 // Created by 麦耀 on 2018/12/25.
 //
 
-#include <stdint.h>
 
 #ifndef DUMPTEST_STACKDUMP_H
 #define DUMPTEST_STACKDUMP_H
 
-#endif //DUMPTEST_STACKDUMP_H
+#include <stdint.h>
 #include <unwind.h>
 #include <dlfcn.h>
 #include <android/log.h>
 
-//为了不多余打印出堆栈，不能打堆栈的地方不能放函数里面，只能放在头文件
+//为了不多余打印出堆栈，打堆栈的地方不能放函数里面，只能放在头文件
 namespace {
     static void dumpBacktrace(void **buffer, size_t count, const char *tag) {
         for (size_t idx = 0; idx < count; ++idx) {
@@ -65,3 +64,5 @@ namespace {
     int count = state.current - buffer; \
     __android_log_print(ANDROID_LOG_INFO, tag, "call stack for [%s]:", __FUNCTION__); \
     dumpBacktrace(buffer, count, tag);
+
+#endif //DUMPTEST_STACKDUMP_H
