@@ -32,7 +32,7 @@ namespace {
             }
 
             //os << "  #" << std::setw(2) << idx << ": " << addr << "  " << symbol << "\n";
-            __android_log_print(ANDROID_LOG_INFO, tag, "#%02d:%p %-20s %p %-10s", idx, addr, symbol, moduleBase, module);
+            __android_log_print(ANDROID_LOG_INFO, tag, "#%02d:%p %-70s %p %-10s", idx, addr, symbol, moduleBase, module);
         }
     }
 
@@ -57,12 +57,12 @@ namespace {
 }
 
 #define DUMP_CALL_STACK(tag) \
-    const size_t max = 30; \
-    void *buffer[max]; \
-    BacktraceState state = {buffer, buffer + max}; \
-    _Unwind_Backtrace(unwindCallback, &state); \
-    int count = state.current - buffer; \
+    const size_t ___max_ = 30; \
+    void *___buffer_[___max_]; \
+    BacktraceState ___state_ = {___buffer_, ___buffer_ + ___max_}; \
+    _Unwind_Backtrace(unwindCallback, &___state_); \
+    int ___count_ = ___state_.current - ___buffer_; \
     __android_log_print(ANDROID_LOG_INFO, tag, "call stack for [%s]:", __FUNCTION__); \
-    dumpBacktrace(buffer, count, tag);
+    dumpBacktrace(___buffer_, ___count_, tag);
 
 #endif //DUMPTEST_STACKDUMP_H

@@ -20,6 +20,7 @@ $(warning "the value of LOCAL_PATH is $(LOCAL_PATH)")
 
 LOCAL_SRC_FILES += $(wildcard $(LOCAL_PATH)/Substrate/*.cpp)
 LOCAL_SRC_FILES += $(wildcard $(LOCAL_PATH)/Substrate/*.c)
+LOCAL_SRC_FILES += test.cpp
 
 #$(warning "lc $(LOCAL_SRC_FILES)")
 
