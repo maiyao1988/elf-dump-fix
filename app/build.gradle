@@ -10,8 +10,10 @@ android {
         versionName "1.0"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
         externalNativeBuild {
-            cmake {
-                cppFlags "-frtti -fexceptions"
+            ndkBuild {
+                arguments 'NDK_APPLICATION_MK:=jni/Application.mk'
+                //cppFlags "-frtti -fexceptions"
+                abiFilters 'armeabi-v7a'
             }
         }
     }
@@ -22,8 +24,8 @@ android {
         }
     }
     externalNativeBuild {
-        cmake {
-            path "CMakeLists.txt"
+        ndkBuild {
+            path "jni/Android.mk"
         }
     }
 }

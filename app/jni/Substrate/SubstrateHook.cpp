@@ -1,7 +1,6 @@
 /* Cydia Substrate - Powerful Code Insertion Platform
  * Copyright (C) 2008-2011  Jay Freeman (saurik)
 */
-
 /* GNU Lesser General Public License, Version 3 {{{ */
 /*
  * Substrate is free software: you can redistribute it and/or modify it under
@@ -18,12 +17,10 @@
  * along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 **/
 /* }}} */
-
 #define SubstrateInternal
 #include "CydiaSubstrate.h"
 
 #include <sys/mman.h>
-
 #define _trace() do { \
     MSLog(MSLogLevelNotice, "_trace(%u)", __LINE__); \
 } while (false)

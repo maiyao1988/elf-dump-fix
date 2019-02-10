@@ -7,7 +7,7 @@
 //
 #include <stdio.h>
 #include <stdlib.h>
-#include "jni/fix.h"
+#include "app/jni/fix.h"
 
 int main(int argc, char *argv[]) {
     if (argc < 4) {
