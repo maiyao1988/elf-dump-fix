@@ -303,10 +303,13 @@ static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer, s
 			//printf("break 1 symName=%s strbase");
 			break;
 		}
+		/*
+		//有些符号在bss里面，不在dump出来的文件范围内
 		if (symValue< (size_t)buffer || symValue > (size_t)(buffer+len)) {
 			//动态表指向文件偏移不在文件范围之内，说明非法，已经没有合法的动态符号了。
 			break;
 		}
+		 */
 		symCount++;
 		sym++;
 	}       

@@ -55,13 +55,22 @@ int inline_hook_check(const char *libPath) {
     Elf_Sym *sym2 = (Elf_Sym *)info2.dynsym;
     char *strings2 = (char *) info2.dynstr;
 
-    //int nsym = ((size_t)dynstr-(size_t)dynsym)/sizeof(Elf_Sym);
+    //int nsym = ((size_t)info.dynstr-(size_t)info.dynsym)/sizeof(Elf_Sym);
     //仅仅适用于地址无关的so
-    size_t nsym = info.relpltsz / sizeof(Elf_Rel);
+    //size_t nsym = info.relpltsz / sizeof(Elf_Rel);
     bool isHooked = false;
-    for(int k = 0; k < nsym; k++, sym++, sym2++) {
+    int k = 0;
+    for(;;sym++, sym2++) {
         const char *symName = strings + sym->st_name;
         const char *symName2 = strings2 + sym2->st_name;
+        if (symName < (const char*)info.dynstr || symName > (const char*)info.dynstr + info.strsz) {
+            break;
+        }
+
+        if (symName2 < (const char*)info2.dynstr || symName2 > (const char*)info2.dynstr + info2.strsz) {
+            break;
+        }
+
         int *addr1 = (int*)((char*)load_addr + sym->st_value - info.loadBias);
         int *addr2 = (int*)((char*)mmapBase + sym2->st_value - info2.loadBias);
         if (sym->st_value != 0 && sym2->st_value != 0) {
@@ -77,6 +86,7 @@ int inline_hook_check(const char *libPath) {
                 }
             }
         }
+        k++;
     }
 
     munmap(mmapBase, st.st_size);

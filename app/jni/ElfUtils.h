@@ -52,6 +52,7 @@ struct ElfDynInfos {
     LoadItem loads[MAX_LOAD_ITEM];
     unsigned nLoads;
     size_t relpltsz;
+    size_t strsz;
     size_t loadBias;
 };
 //retType,决定返回dynsym等在文件中的偏移，还是在内存的偏移

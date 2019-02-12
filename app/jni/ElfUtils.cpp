@@ -140,6 +140,9 @@ void get_info_in_dynamic(ElfDynInfos *infos, int retType, void *elf) {
             case DT_STRTAB:
                 infos->dynstr =  (void*)(dynNow->d_un.d_ptr - bias + (size_t)elfBase);
                 break;
+            case DT_STRSZ:
+                infos->strsz = dynNow->d_un.d_val;
+                break;
             case DT_JMPREL:
                 infos->relplt =  (void*)(dynNow->d_un.d_ptr - bias + (size_t)elfBase);
                 break;
