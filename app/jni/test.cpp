@@ -25,11 +25,9 @@ Java_com_reverse_my_reverseutils_MainActivity_stringFromJNI(
         jobject /* this */) {
 
 
-    /*
     __android_log_print(ANDROID_LOG_INFO, TAG, "before hook %p", ori_read);
     MSHookFunction((void*)read, (void*)my_read, (void**)&ori_read);
     __android_log_print(ANDROID_LOG_INFO, TAG, "after hook %p", ori_read);
-     */
 
     inline_hook_check("libc.so");
 

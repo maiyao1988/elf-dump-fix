@@ -21,17 +21,15 @@ void *got_hook(const char *moduleName, const char *target_name, void *callback){
         return 0;
     }
 
-    size_t dynstr = 0, dynsym = 0, relplt=0;
-    size_t relpltsz = 0;
-    size_t loadBias = 0;
-    get_info_in_dynamic(dynsym, dynstr, relplt, relpltsz, RET_MEM, loadBias, addrLoad);
+    ElfDynInfos info;
+    get_info_in_dynamic(&info, RET_MEM, load_addr);
 
-    size_t count = relpltsz / sizeof(Elf_Rel);
+    size_t count = info.relpltsz / sizeof(Elf_Rel);
 
-    Elf_Rel *rel = (Elf_Rel*)((size_t)relplt);
+    Elf_Rel *rel = (Elf_Rel*)((size_t)info.relplt);
 
-    Elf_Sym *symtab = (Elf_Sym*)((size_t)dynsym);
-    const char *strings = (const char *) ((size_t)dynstr);
+    Elf_Sym *symtab = (Elf_Sym*)((size_t)info.dynsym);
+    const char *strings = (const char *) ((size_t)info.dynstr);
 
     void *oldFunAddr = 0;
     for (size_t idx = 0; idx<count; ++idx, ++rel) {
@@ -73,20 +71,6 @@ void *got_hook(const char *moduleName, const char *target_name, void *callback){
 }
 */
 
-//
-// Created by my on 18-6-4.
-//
-
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/mman.h>
-#include <android/log.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include "ElfUtils.h"
-
-
 struct FakeHandle{
     size_t load_addr;
     void *dynstr;
@@ -107,15 +91,12 @@ void *fake_dlopen(const char *libpath, int flags)
     FakeHandle *ctx = (FakeHandle *) calloc(1, sizeof(FakeHandle));
     ctx->load_addr = (size_t)load_addr;
 
-    size_t dynstr = 0, dynsym = 0, relplt = 0;
-    size_t relpltsz = 0;
-    size_t loadBias = 0;
+    ElfDynInfos info;
+    get_info_in_dynamic(&info, RET_MEM, load_addr);
 
-    get_info_in_dynamic(dynsym, dynstr, relplt, relpltsz, loadBias, RET_MEM, load_addr);
-
-    ctx->dynsym = (void*)(dynsym);
-    ctx->dynstr = (void*)(dynstr);
-    ctx->loadBias = loadBias;
+    ctx->dynsym = (void*)(info.dynsym);
+    ctx->dynstr = (void*)(info.dynstr);
+    ctx->loadBias = info.loadBias;
 
     if(!ctx->dynstr || !ctx->dynsym) {
         __android_log_print(ANDROID_LOG_ERROR, tag, "dynamic sections not found in %s", libpath);

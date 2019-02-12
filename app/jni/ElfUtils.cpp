@@ -50,7 +50,8 @@ void *get_map_infos(char *bufLibFullPath, size_t sz, const char *libpath) {
     return load_addr;
 }
 
-void get_info_in_dynamic(size_t &dynsym, size_t &dynstr, size_t &relplt, size_t &relpltsz, size_t &loadBias, int retType, void *elf) {
+void get_info_in_dynamic(ElfDynInfos *infos, int retType, void *elf) {
+    memset(infos, 0, sizeof(ElfDynInfos));
     const char *elfBase = (const char*)elf;
     Elf_Ehdr *ehdr = (Elf_Ehdr*)elf;
     //locate elf with phdr.not shdr.
@@ -58,6 +59,7 @@ void get_info_in_dynamic(size_t &dynsym, size_t &dynstr, size_t &relplt, size_t 
     int phNum = ehdr->e_phnum;
     size_t dyn_size = 0, dyn_off = 0;
     Elf_Addr minLoadAddr = (Elf_Addr)-1;
+    unsigned int nLoads = 0;
     for (int i = 0; i < phNum; ++i) {
         Elf_Word p_type = phdr[i].p_type;
         if (p_type == PT_DYNAMIC) {
@@ -79,8 +81,28 @@ void get_info_in_dynamic(size_t &dynsym, size_t &dynstr, size_t &relplt, size_t 
                     minLoadAddr = loadAddr;
                 }
             }
+            if (nLoads < MAX_LOAD_ITEM) {
+                LoadItem *item = &(infos->loads[nLoads]);
+                item->accFlags = phdr[i].p_flags;
+                if (retType == RET_MEM) {
+                    item->addr = (void *) (phdr[i].p_vaddr + elfBase);
+                    item->sz = phdr[i].p_memsz;
+                } else {
+                    item->addr = (void *) (phdr[i].p_offset + elfBase);
+                    item->sz = phdr[i].p_filesz;
+                }
+                nLoads++;
+            }
+        }
+        infos->nLoads = nLoads;
+    }
+
+    if (retType == RET_MEM) {
+        for (unsigned int i = 0; i < nLoads; i++) {
+            infos->loads[i].addr = (void*)((size_t )infos->loads[i].addr - minLoadAddr);
         }
     }
+
     if (retType == RET_FILE) {
         minLoadAddr = 0;
     }
@@ -92,20 +114,20 @@ void get_info_in_dynamic(size_t &dynsym, size_t &dynstr, size_t &relplt, size_t 
         int type = (int)dyn[i].d_tag;
         switch (type) {
             case DT_SYMTAB:
-                dynsym =  dyn[i].d_un.d_ptr - minLoadAddr + (size_t)elfBase;
+                infos->dynsym =  (void*)(dyn[i].d_un.d_ptr - minLoadAddr + (size_t)elfBase);
                 break;
             case DT_STRTAB:
-                dynstr =  dyn[i].d_un.d_ptr - minLoadAddr + (size_t)elfBase;
+                infos->dynstr =  (void*)(dyn[i].d_un.d_ptr - minLoadAddr + (size_t)elfBase);
                 break;
             case DT_JMPREL:
-                relplt =  dyn[i].d_un.d_ptr - minLoadAddr + (size_t)elfBase;
+                infos->relplt =  (void*)(dyn[i].d_un.d_ptr - minLoadAddr + (size_t)elfBase);
                 break;
             case DT_PLTRELSZ:
-                relpltsz = dyn[i].d_un.d_val;
+                infos->relpltsz = dyn[i].d_un.d_val;
                 break;
             default:
                 break;
         }
     }
-    loadBias = minLoadAddr;
+    infos->loadBias = minLoadAddr;
 }

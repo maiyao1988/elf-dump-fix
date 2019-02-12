@@ -31,8 +31,25 @@ void *get_map_infos(char *bufLibPath, size_t bufSize, const char *libpath);
 
 #define RET_MEM 0
 #define RET_FILE 1
+#define MAX_LOAD_ITEM 10
+
+struct LoadItem {
+    void *addr;
+    Elf_Word accFlags;
+    size_t sz;
+};
+
+struct ElfDynInfos {
+    void *dynsym;
+    void *dynstr;
+    void *relplt;
+    LoadItem loads[MAX_LOAD_ITEM];
+    unsigned nLoads;
+    size_t relpltsz;
+    size_t loadBias;
+};
 //retType,决定返回dynsym等在文件中的偏移，还是在内存的偏移
-void get_info_in_dynamic(size_t &dynsym, size_t &dynstr, size_t &relplt, size_t &relpltsz, size_t &loadBias, int retType, void *elf);
+void get_info_in_dynamic(ElfDynInfos *info, int retType, void *elf);
 
 void *fake_dlopen(const char *libpath, int flags);
 
