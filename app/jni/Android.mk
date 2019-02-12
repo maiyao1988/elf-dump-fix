@@ -16,11 +16,11 @@ include $(BUILD_EXECUTABLE)
 include $(CLEAR_VARS)
 LOCAL_MODULE := rev
 
-$(warning "the value of LOCAL_PATH is $(LOCAL_PATH)")
+#$(warning "the value of LOCAL_PATH is $(LOCAL_PATH)")
 
 LOCAL_SRC_FILES += $(wildcard $(LOCAL_PATH)/Substrate/*.cpp)
 LOCAL_SRC_FILES += $(wildcard $(LOCAL_PATH)/Substrate/*.c)
-LOCAL_SRC_FILES += test.cpp
+LOCAL_SRC_FILES += $(wildcard $(LOCAL_PATH)/*.cpp)
 
 #$(warning "lc $(LOCAL_SRC_FILES)")
 

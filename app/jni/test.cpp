@@ -6,6 +6,8 @@
 #include <unistd.h>
 #include <android/log.h>
 #include "StackDump.h"
+#include "ElfUtils.h"
+
 #define TAG "REV-DEMO"
 
 typedef ssize_t (*fnread) (int fd, void *buf, size_t count);
@@ -23,9 +25,15 @@ Java_com_reverse_my_reverseutils_MainActivity_stringFromJNI(
         jobject /* this */) {
 
 
+    /*
     __android_log_print(ANDROID_LOG_INFO, TAG, "before hook %p", ori_read);
     MSHookFunction((void*)read, (void*)my_read, (void**)&ori_read);
     __android_log_print(ANDROID_LOG_INFO, TAG, "after hook %p", ori_read);
+     */
+    void *p = fake_dlopen("libc.so", 0);
+    fnread f = (fnread ) fake_dlsym(p, "read");
+    fake_dlclose(p);
+
     std::string hello = "Hello from C++";
     return env->NewStringUTF(hello.c_str());
 }
