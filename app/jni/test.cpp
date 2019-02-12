@@ -30,6 +30,7 @@ Java_com_reverse_my_reverseutils_MainActivity_stringFromJNI(
     __android_log_print(ANDROID_LOG_INFO, TAG, "after hook %p", ori_read);
 
     inline_hook_check("libc.so");
+    inline_hook_check("libart.so");
 
     void *p = fake_dlopen("libc.so", 0);
     fnread f = (fnread ) fake_dlsym(p, "read");

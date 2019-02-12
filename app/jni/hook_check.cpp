@@ -62,16 +62,17 @@ int inline_hook_check(const char *libPath) {
         const char *symName = strings + sym->st_name;
         const char *symName2 = strings2 + sym2->st_name;
         int *addr1 = (int*)((char*)load_addr + sym->st_value - info.loadBias);
-        int *addr2 = (int*)((char*)mmapBase + sym2->st_value);
+        int *addr2 = (int*)((char*)mmapBase + sym2->st_value - info2.loadBias);
         if (sym->st_value != 0 && sym2->st_value != 0) {
             //inline hook基本原理是修改函数前几个字节，这里只检测前4个字节
             Elf_Word flags = get_acc_flags(&info, addr1);
             if (flags & PF_X) {
                 if (*addr1 != *addr2) {
                     isHooked = true;
+                    unsigned addrFile = (char*)addr2 - mmapBase;
                     __android_log_print(ANDROID_LOG_INFO, "fake_dlsym",
                                         "%s is hooked addrMem:%p addrFile:%08x, first 4bytes in mem:%08x, file:%08x",
-                                        symName, addr1, (char *) addr2 - mmapBase, *addr1, *addr2);
+                                        symName, addr1, addrFile, *addr1, *addr2);
                 }
             }
         }
