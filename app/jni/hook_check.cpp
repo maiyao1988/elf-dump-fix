@@ -24,14 +24,15 @@ static Elf_Word get_acc_flags(ElfDynInfos *infos, void *addr) {
 //该函数只对地址无关代码可以使用
 //地址相关代码因为重定位会修改代码段，所以无效
 int inline_hook_check(const char *libPath) {
-    char buf[256];
 
-    void *load_addr = get_map_infos(buf, sizeof(buf), libPath);
+    MapInfo mapInfo = {0};
+    get_map_infos(&mapInfo, libPath);
+    void *load_addr = mapInfo.baseAddr;
     if (!load_addr) {
         return 0;
     }
 
-    int fd = open(buf, O_RDONLY);
+    int fd = open(mapInfo.libPath, O_RDONLY);
     struct stat st = {0};
     fstat(fd, &st);
 

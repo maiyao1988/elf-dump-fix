@@ -83,7 +83,9 @@ void *fake_dlopen(const char *libpath, int flags)
 {
     const char *tag = "fake_dlopen";
 
-    void *load_addr = get_map_infos(0, 0, libpath);
+    MapInfo mapInfo = {0};
+    get_map_infos(&mapInfo, libpath);
+    void *load_addr = mapInfo.baseAddr;
     if (!load_addr) {
         return 0;
     }

@@ -27,7 +27,13 @@ typedef Elf32_Shdr Elf_Shdr;
 #endif
 
 //给定模糊名字，取进程maps中匹配的maps信息
-void *get_map_infos(char *bufLibPath, size_t bufSize, const char *libpath);
+struct MapInfo {
+    char libPath[256];
+    void *baseAddr;
+    void *endAddr;
+};
+
+int get_map_infos(MapInfo *info, const char *libpath);
 
 #define RET_MEM 0
 #define RET_FILE 1

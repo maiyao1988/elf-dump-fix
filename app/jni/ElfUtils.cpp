@@ -11,43 +11,50 @@
 #include <elf.h>
 #include <sys/exec_elf.h>
 
-void *get_map_infos(char *bufLibFullPath, size_t sz, const char *libpath) {
+int get_map_infos(MapInfo *info, const char *libpath) {
     const char *tag = __FUNCTION__;
     char buff[256] = {0};
     FILE *maps = fopen("/proc/self/maps", "r");
-    if(!maps)
+    if(!maps) {
         __android_log_print(ANDROID_LOG_ERROR, tag, "failed to open maps");
+        return -3;
+    }
+
+    void *baseAddr = (void*)-1;
+    void *endAddr = 0;
+
+
     int found = 0;
     while(fgets(buff, sizeof(buff), maps)) {
         const char *s = strstr(buff, libpath);
+        void *baseAddrTmp = (void*)-1;
+        void *endAddrTmp = 0;
         if (s) {
             //just get the first line, which includes the base address.
             found = 1;
-            break;
+            if(sscanf(buff, "%p-%p %*c%*c%*c%*c %*x %*x:%*x %*d %s", &baseAddrTmp, &endAddrTmp, info->libPath) != 3) {
+                __android_log_print(ANDROID_LOG_ERROR, tag, "failed to read load address for %s", libpath);
+                continue;
+            }
+            if (baseAddrTmp < baseAddr) {
+                baseAddr = baseAddrTmp;
+            }
+            if (endAddrTmp > endAddr) {
+                endAddr = endAddrTmp;
+            }
         }
     }
     fclose(maps);
 
     if(!found) {
         __android_log_print(ANDROID_LOG_ERROR, tag, "%s not found in my userspace", libpath);
-        return 0;
+        return -1;
     }
 
-    void *load_addr = 0;
-    char libPath[300] = {0};
-    //ea116000-ea117000 r--p 0000f000 fd:00 3638                               /system/lib/libcutils.so
-    if(sscanf(buff, "%p-%*p %*c%*c%*c%*c %*x %*x:%*x %*d %s", &load_addr, libPath) != 2) {
-        __android_log_print(ANDROID_LOG_ERROR, tag, "failed to read load address for %s", libpath);
-        return 0;
-    }
-
-    if (bufLibFullPath) {
-        strncpy(bufLibFullPath, libPath, sz);
-    }
-
-    __android_log_print(ANDROID_LOG_INFO, tag, "%s loaded in Android at %p", libpath, load_addr);
-
-    return load_addr;
+    info->baseAddr = baseAddr;
+    info->endAddr = endAddr;
+    __android_log_print(ANDROID_LOG_INFO, tag, "%s loaded in Android at %p", libpath, baseAddr);
+    return 0;
 }
 
 void get_info_in_dynamic(ElfDynInfos *infos, int retType, void *elf) {
