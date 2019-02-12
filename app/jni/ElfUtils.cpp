@@ -9,9 +9,9 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <elf.h>
+#include <sys/exec_elf.h>
 
-void *get_module_addr(const char *libpath) {
-
+void *get_map_infos(char *bufLibFullPath, size_t sz, const char *libpath) {
     const char *tag = __FUNCTION__;
     char buff[256] = {0};
     FILE *maps = fopen("/proc/self/maps", "r");
@@ -34,9 +34,15 @@ void *get_module_addr(const char *libpath) {
     }
 
     void *load_addr = 0;
-    if(sscanf(buff, "%p", &load_addr) != 1) {
+    char libPath[300] = {0};
+    //ea116000-ea117000 r--p 0000f000 fd:00 3638                               /system/lib/libcutils.so
+    if(sscanf(buff, "%p-%*p %*c%*c%*c%*c %*x %*x:%*x %*d %s", &load_addr, libPath) != 2) {
         __android_log_print(ANDROID_LOG_ERROR, tag, "failed to read load address for %s", libpath);
         return 0;
+    }
+
+    if (bufLibFullPath) {
+        strncpy(bufLibFullPath, libPath, sz);
     }
 
     __android_log_print(ANDROID_LOG_INFO, tag, "%s loaded in Android at %p", libpath, load_addr);
@@ -44,26 +50,39 @@ void *get_module_addr(const char *libpath) {
     return load_addr;
 }
 
-void get_info_in_dynamic(Elf_Ehdr *elf, size_t &dynsym, size_t &dynstr, size_t &relplt, size_t &relpltsz, size_t &loadBias) {
+void get_info_in_dynamic(size_t &dynsym, size_t &dynstr, size_t &relplt, size_t &relpltsz, size_t &loadBias, int retType, void *elf) {
     const char *elfBase = (const char*)elf;
+    Elf_Ehdr *ehdr = (Elf_Ehdr*)elf;
     //locate elf with phdr.not shdr.
-    Elf_Phdr *phdr = (Elf_Phdr*)(elfBase + elf->e_phoff);
-    int phNum = elf->e_phnum;
+    Elf_Phdr *phdr = (Elf_Phdr*)(elfBase + ehdr->e_phoff);
+    int phNum = ehdr->e_phnum;
     size_t dyn_size = 0, dyn_off = 0;
     Elf_Addr minLoadAddr = (Elf_Addr)-1;
     for (int i = 0; i < phNum; ++i) {
         Elf_Word p_type = phdr[i].p_type;
         if (p_type == PT_DYNAMIC) {
-            //get dyn symbol table from dynamic section
-            dyn_size = phdr[i].p_memsz;
-            dyn_off = phdr[i].p_vaddr;
-        }
-        else if (p_type == PT_LOAD) {
-            Elf_Addr loadAddr = phdr[i].p_vaddr;
-            if (minLoadAddr > loadAddr) {
-                minLoadAddr = loadAddr;
+            if (retType == RET_MEM) {
+                //get dyn symbol table from dynamic section
+                dyn_size = phdr[i].p_memsz;
+                dyn_off = phdr[i].p_vaddr;
+            }
+            else if (retType == RET_FILE){
+                dyn_size = phdr[i].p_filesz;
+                dyn_off = phdr[i].p_offset;
             }
         }
+        else if (p_type == PT_LOAD) {
+            if (retType == RET_MEM) {
+                //只有找内存中的偏移和大小才需要考虑这个问题
+                Elf_Addr loadAddr = phdr[i].p_vaddr;
+                if (minLoadAddr > loadAddr) {
+                    minLoadAddr = loadAddr;
+                }
+            }
+        }
+    }
+    if (retType == RET_FILE) {
+        minLoadAddr = 0;
     }
     dyn_off -= minLoadAddr;
 
@@ -73,13 +92,13 @@ void get_info_in_dynamic(Elf_Ehdr *elf, size_t &dynsym, size_t &dynstr, size_t &
         int type = (int)dyn[i].d_tag;
         switch (type) {
             case DT_SYMTAB:
-                dynsym =  dyn[i].d_un.d_ptr - minLoadAddr;
+                dynsym =  dyn[i].d_un.d_ptr - minLoadAddr + (size_t)elfBase;
                 break;
             case DT_STRTAB:
-                dynstr =  dyn[i].d_un.d_ptr - minLoadAddr;
+                dynstr =  dyn[i].d_un.d_ptr - minLoadAddr + (size_t)elfBase;
                 break;
             case DT_JMPREL:
-                relplt =  dyn[i].d_un.d_ptr - minLoadAddr;
+                relplt =  dyn[i].d_un.d_ptr - minLoadAddr + (size_t)elfBase;
                 break;
             case DT_PLTRELSZ:
                 relpltsz = dyn[i].d_un.d_val;

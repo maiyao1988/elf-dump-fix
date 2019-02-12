@@ -2,8 +2,8 @@
 // Created by my on 18-6-5.
 //
 
-#ifndef DXSTUB_ELFUTILS_H
-#define DXSTUB_ELFUTILS_H
+#ifndef _ELFUTILS_H
+#define _ELFUTILS_H
 
 #include <stdint.h>
 #include <elf.h>
@@ -26,9 +26,13 @@ typedef Elf32_Rel Elf_Rel;
 typedef Elf32_Shdr Elf_Shdr;
 #endif
 
-void *get_module_addr(const char *libpath);
+//给定模糊名字，取进程maps中匹配的maps信息
+void *get_map_infos(char *bufLibPath, size_t bufSize, const char *libpath);
 
-void get_info_in_dynamic(Elf_Ehdr *elf, size_t &dynsym, size_t &dynstr, size_t &relplt, size_t &relpltsz, size_t &loadBias);
+#define RET_MEM 0
+#define RET_FILE 1
+//retType,决定返回dynsym等在文件中的偏移，还是在内存的偏移
+void get_info_in_dynamic(size_t &dynsym, size_t &dynstr, size_t &relplt, size_t &relpltsz, size_t &loadBias, int retType, void *elf);
 
 void *fake_dlopen(const char *libpath, int flags);
 
@@ -36,5 +40,7 @@ void *fake_dlsym(void *handle, const char *name);
 
 int fake_dlclose(void *handle);
 
+int inline_hook_check(const char *libPath);
 
-#endif //DXSTUB_ELFUTILS_H
+
+#endif //_ELFUTILS_H

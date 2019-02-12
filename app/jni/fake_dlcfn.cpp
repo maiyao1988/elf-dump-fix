@@ -16,23 +16,22 @@
 void *got_hook(const char *moduleName, const char *target_name, void *callback){
     soinfo *si = (soinfo *)dlopen(moduleName, RTLD_NOW | RTLD_LOCAL);
 
-    void *addrLoad = get_module_addr(moduleName);
+    void *addrLoad = get_map_infos(0, 0. moduleName);
     if (!addrLoad) {
         return 0;
     }
-    Elf_Ehdr *elf = (Elf_Ehdr*)addrLoad;
 
     size_t dynstr = 0, dynsym = 0, relplt=0;
     size_t relpltsz = 0;
     size_t loadBias = 0;
-    get_info_in_dynamic(elf, dynsym, dynstr, relplt, relpltsz, loadBias);
+    get_info_in_dynamic(dynsym, dynstr, relplt, relpltsz, RET_MEM, loadBias, addrLoad);
 
     size_t count = relpltsz / sizeof(Elf_Rel);
 
-    Elf_Rel *rel = (Elf_Rel*)((size_t)addrLoad+relplt);
+    Elf_Rel *rel = (Elf_Rel*)((size_t)relplt);
 
-    Elf_Sym *symtab = (Elf_Sym*)((size_t)addrLoad + dynsym);
-    const char *strings = (const char *) ((size_t)addrLoad + dynstr);
+    Elf_Sym *symtab = (Elf_Sym*)((size_t)dynsym);
+    const char *strings = (const char *) ((size_t)dynstr);
 
     void *oldFunAddr = 0;
     for (size_t idx = 0; idx<count; ++idx, ++rel) {
@@ -88,7 +87,7 @@ void *got_hook(const char *moduleName, const char *target_name, void *callback){
 #include "ElfUtils.h"
 
 
-struct MyHandle{
+struct FakeHandle{
     size_t load_addr;
     void *dynstr;
     void *dynsym;
@@ -100,26 +99,22 @@ void *fake_dlopen(const char *libpath, int flags)
 {
     const char *tag = "fake_dlopen";
 
-    void *load_addr = get_module_addr(libpath);
+    void *load_addr = get_map_infos(0, 0, libpath);
     if (!load_addr) {
         return 0;
     }
 
-    MyHandle *ctx = (MyHandle *) calloc(1, sizeof(MyHandle));
+    FakeHandle *ctx = (FakeHandle *) calloc(1, sizeof(FakeHandle));
     ctx->load_addr = (size_t)load_addr;
-
-    Elf_Ehdr *elf = 0;
-
-    elf = (Elf_Ehdr *) load_addr;
 
     size_t dynstr = 0, dynsym = 0, relplt = 0;
     size_t relpltsz = 0;
     size_t loadBias = 0;
 
-    get_info_in_dynamic(elf, dynsym, dynstr, relplt, relpltsz, loadBias);
+    get_info_in_dynamic(dynsym, dynstr, relplt, relpltsz, loadBias, RET_MEM, load_addr);
 
-    ctx->dynsym = (void*)(ctx->load_addr+dynsym);
-    ctx->dynstr = (void*)(ctx->load_addr+dynstr);
+    ctx->dynsym = (void*)(dynsym);
+    ctx->dynstr = (void*)(dynstr);
     ctx->loadBias = loadBias;
 
     if(!ctx->dynstr || !ctx->dynsym) {
@@ -133,7 +128,7 @@ void *fake_dlopen(const char *libpath, int flags)
 
 void *fake_dlsym(void *handle, const char *name)
 {
-    MyHandle *ctx = (MyHandle*) handle;
+    FakeHandle *ctx = (FakeHandle*) handle;
     Elf_Sym *sym = (Elf_Sym *) ctx->dynsym;
     char *strings = (char *) ctx->dynstr;
 
