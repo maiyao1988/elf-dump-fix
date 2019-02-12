@@ -1,8 +1,8 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include "fix.h"
 
-static const char* g_str = "..dynsym..dynstr..hash..rel.dyn..rel.plt..plt..text@.ARM.extab..ARM.exidx..fini_array..init_array..dynamic..got..data..bss..shstrtab\0";
-static const char* g_strtabcontent = "\0.dynsym\0.dynstr\0.hash\0.rel.dyn\0.rel.plt\0.plt\0.text@.ARM.extab\0.ARM.exidx\0.fini_array\0.init_array\0.dynamic\0.got\0.data\0.bss\0.shstrtab\0";
+static const char* g_str = "..dynsym..dynstr..hash..rel.dyn..rel.plt..plt..text..ARM.exidx..fini_array..init_array..dynamic..got..data..bss..shstrtab\0";
+static const char* g_strtabcontent = "\0.dynsym\0.dynstr\0.hash\0.rel.dyn\0.rel.plt\0.plt\0.text\0.ARM.exidx\0.fini_array\0.init_array\0.dynamic\0.got\0.data\0.bss\0.shstrtab\0";
 
 static Elf32_Word _get_off_in_shstrtab(const char *name)
 {
