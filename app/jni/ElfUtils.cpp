@@ -9,7 +9,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <elf.h>
-#include <sys/exec_elf.h>
+#include <string.h>
 
 int get_map_infos(MapInfo *info, const char *libpath) {
     const char *tag = __FUNCTION__;
@@ -66,9 +66,9 @@ void get_info_in_dynamic(ElfDynInfos *infos, int retType, void *elf) {
     int phNum = ehdr->e_phnum;
     size_t dyn_size = 0, dyn_off = 0;
     //由于libart第一个load vaddr不是0,系统装载的时候当0装载，所以所有相对于loadAddr的mem地址都需要减去第一个load的vaddr
-    Elf_Addr minLoadAddr = (Elf_Addr)-1;
+    //见linker get_elf_exec_load_bias函数
     //内存与文件中的偏移
-    Elf_Addr biasMemFile = 0;
+    Elf_Addr biasFirstLoad = 0;
     unsigned int nLoads = 0;
     for (int i = 0; i < phNum; ++i) {
         Elf_Word p_type = phdr[i].p_type;
@@ -84,16 +84,10 @@ void get_info_in_dynamic(ElfDynInfos *infos, int retType, void *elf) {
             }
         }
         else if (p_type == PT_LOAD) {
-            if (retType == RET_MEM) {
-                //只有找内存中的偏移和大小才需要考虑这个问题
-                Elf_Addr loadAddr = phdr[i].p_vaddr;
-                if (minLoadAddr > loadAddr) {
-                    minLoadAddr = loadAddr;
-                }
-            }
 
             if (nLoads == 0) {
-                biasMemFile = phdr[i].p_vaddr - phdr[i].p_offset;
+                //在内存中，所有基于so baseAddr的地址都要减去第一个load的vaddr与offset差，见linker代码
+                biasFirstLoad = phdr[i].p_vaddr - phdr[i].p_offset;
             }
             if (nLoads < MAX_LOAD_ITEM) {
                 LoadItem *item = &(infos->loads[nLoads]);
@@ -113,18 +107,12 @@ void get_info_in_dynamic(ElfDynInfos *infos, int retType, void *elf) {
 
     if (retType == RET_MEM) {
         for (unsigned int i = 0; i < nLoads; i++) {
-            infos->loads[i].addr = (void*)((size_t )infos->loads[i].addr - minLoadAddr);
+            infos->loads[i].addr = (void*)((size_t )infos->loads[i].addr - biasFirstLoad);
         }
-        dyn_off -= minLoadAddr;
+        dyn_off -= biasFirstLoad;
     }
 
-    size_t bias = 0;
-    if (retType == RET_MEM) {
-        bias = minLoadAddr;
-    }
-    else if (retType == RET_FILE) {
-        bias = biasMemFile;
-    }
+    size_t bias = biasFirstLoad;
 
     //由于在dynamic的地址全部都是内存中的偏移，有dynamic的地址全部在第一个load里面, 以需要找到文件中的对应位置的话，
     //需要减去第一个load的vaddr与offset的偏移

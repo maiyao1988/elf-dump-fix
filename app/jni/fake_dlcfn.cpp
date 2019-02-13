@@ -10,6 +10,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <elf.h>
+#include <string.h>
 #include "ElfUtils.h"
 
 /*

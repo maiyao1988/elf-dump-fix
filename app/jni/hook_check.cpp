@@ -6,6 +6,7 @@
 #include <android/log.h>
 #include <string.h>
 #include <fcntl.h>
+#include <unistd.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 
@@ -71,18 +72,19 @@ int inline_hook_check(const char *libPath) {
             break;
         }
 
-        int *addr1 = (int*)((char*)load_addr + sym->st_value - info.loadBias);
-        int *addr2 = (int*)((char*)mmapBase + sym2->st_value - info2.loadBias);
+        unsigned *addr1 = (unsigned *)((char*)load_addr + sym->st_value);
+        unsigned *addr2 = (unsigned *)((char*)mmapBase + sym2->st_value);
         if (sym->st_value != 0 && sym2->st_value != 0) {
             //inline hook基本原理是修改函数前几个字节，这里只检测前4个字节
             Elf_Word flags = get_acc_flags(&info, addr1);
+            unsigned addrMem = (char*)addr1 - (char*)load_addr;
+            unsigned addrFile = (char*)addr2 - mmapBase;
             if (flags & PF_X) {
                 if (*addr1 != *addr2) {
                     isHooked = true;
-                    unsigned addrFile = (char*)addr2 - mmapBase;
                     __android_log_print(ANDROID_LOG_INFO, "fake_dlsym",
                                         "%s is hooked addrMem:%p addrFile:%08x, first 4bytes in mem:%08x, file:%08x",
-                                        symName, addr1, addrFile, *addr1, *addr2);
+                                        symName, addrMem, addrFile, *addr1, *addr2);
                 }
             }
         }

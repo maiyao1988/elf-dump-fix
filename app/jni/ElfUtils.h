@@ -16,6 +16,7 @@ typedef Elf64_Dyn Elf_Dyn;
 typedef Elf64_Sym Elf_Sym;
 typedef Elf64_Rela Elf_Rel;
 typedef Elf64_Shdr Elf_Shdr;
+typedef Elf64_Word Elf_Word;
 #else
 typedef Elf32_Ehdr Elf_Ehdr;
 typedef Elf32_Addr Elf_Addr;
@@ -24,6 +25,7 @@ typedef Elf32_Dyn Elf_Dyn;
 typedef Elf32_Sym Elf_Sym;
 typedef Elf32_Rel Elf_Rel;
 typedef Elf32_Shdr Elf_Shdr;
+typedef Elf32_Word Elf_Word;
 #endif
 
 //给定模糊名字，取进程maps中匹配的maps信息

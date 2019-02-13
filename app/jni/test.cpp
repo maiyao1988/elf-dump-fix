@@ -29,12 +29,14 @@ Java_com_reverse_my_reverseutils_MainActivity_stringFromJNI(
     MSHookFunction((void*)read, (void*)my_read, (void**)&ori_read);
     __android_log_print(ANDROID_LOG_INFO, TAG, "after hook %p", ori_read);
 
-    inline_hook_check("libc.so");
+    //inline_hook_check("libc.so");
     inline_hook_check("libart.so");
 
+    /*
     void *p = fake_dlopen("libc.so", 0);
     fnread f = (fnread ) fake_dlsym(p, "read");
     fake_dlclose(p);
+     */
 
     std::string hello = "Hello from C++";
     return env->NewStringUTF(hello.c_str());
