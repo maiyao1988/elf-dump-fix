@@ -80,10 +80,13 @@ int inline_hook_check(const char *libPath) {
             unsigned addrMem = (char*)addr1 - (char*)load_addr;
             unsigned addrFile = (char*)addr2 - mmapBase;
             if (flags & PF_X) {
+                __android_log_print(ANDROID_LOG_INFO, "hook_check",
+                                    "%s check addrMem:%08x addrFile:%08x, first 4bytes in mem:%08x, file:%08x",
+                                    symName, addrMem, addrFile, *addr1, *addr2);
                 if (*addr1 != *addr2) {
                     isHooked = true;
-                    __android_log_print(ANDROID_LOG_INFO, "fake_dlsym",
-                                        "%s is hooked addrMem:%p addrFile:%08x, first 4bytes in mem:%08x, file:%08x",
+                    __android_log_print(ANDROID_LOG_INFO, "hook_check",
+                                        "%s is hooked addrMem:%08x addrFile:%08x, first 4bytes in mem:%08x, file:%08x",
                                         symName, addrMem, addrFile, *addr1, *addr2);
                 }
             }
