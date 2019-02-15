@@ -97,11 +97,12 @@ static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer, s
 			g_shdr[DYNAMIC].sh_flags = SHF_WRITE | SHF_ALLOC;
 			g_shdr[DYNAMIC].sh_addr = phdr[i].p_vaddr - bias;
 			g_shdr[DYNAMIC].sh_offset = phdr[i].p_vaddr - bias;
-			g_shdr[DYNAMIC].sh_size = phdr[i].p_filesz;
+			g_shdr[DYNAMIC].sh_size = phdr[i].p_memsz;
 			g_shdr[DYNAMIC].sh_link = 2;
 			g_shdr[DYNAMIC].sh_info = 0;
 			g_shdr[DYNAMIC].sh_addralign = 4;
 			g_shdr[DYNAMIC].sh_entsize = 8;
+
 			dyn_size = phdr[i].p_memsz;
 			dyn_off = phdr[i].p_vaddr-bias;
 		}
@@ -312,7 +313,7 @@ static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer, s
 		 */
 		symCount++;
 		sym++;
-	}       
+	}
    
 	//printf("size %d addr %08x\n", g_shdr[DYNSTR].sh_size, g_shdr[DYNSTR].sh_addr);
 	g_shdr[DYNSYM].sh_size = symCount * 16;
