@@ -39,6 +39,7 @@ static void _fix_relative_rebase(const char *buffer, size_t bufSize, Elf32_Word 
         //unsigned sym = (unsigned)ELF32_R_SYM(rel->r_info);
         if (type == R_ARM_RELATIVE)
         {
+            //被Releative修正的地址需要减回装载地址才可以得出原本的Releative偏移
             Elf32_Addr off = rel->r_offset;
             unsigned *offIntBuf = (unsigned*)(buffer+off);
             if (border < (const char*)offIntBuf) {
@@ -54,11 +55,10 @@ static void _fix_relative_rebase(const char *buffer, size_t bufSize, Elf32_Word 
 
 static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer, size_t len)
 {
-	Elf32_Phdr load = { 0 };
+	Elf32_Phdr lastLoad = { 0 };
 	Elf32_Phdr *phdr = (Elf32_Phdr*)(buffer + pehdr->e_phoff);
 	int ph_num = pehdr->e_phnum;
 	int dyn_size = 0, dyn_off = 0;
-	int loadIndex = 0;
 
 	//所有相对于module base的地址都要减去这个地址
     size_t bias = 0;
@@ -69,6 +69,7 @@ static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer, s
 			break;
 		}
 	}
+	int loadIndex = 0;
 	for(int i = 0;i < ph_num;i++) {
 		//段在文件中的偏移修正，因为从内存dump出来的文件偏移就是在内存的偏移
 		phdr[i].p_offset =  phdr[i].p_vaddr;
@@ -77,17 +78,7 @@ static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer, s
 		if (phdr[i].p_type == PT_LOAD) {
 			loadIndex++;
 			if (phdr[i].p_vaddr > 0x0 && loadIndex == 2) {
-				//BSS一般都在第二个load节的最后
-				load = phdr[i];
-				g_shdr[BSS].sh_name = _get_off_in_shstrtab(".bss");
-				//BSS大小无所谓
-				g_shdr[BSS].sh_type = SHT_NOBITS;
-				g_shdr[BSS].sh_flags = SHF_WRITE | SHF_ALLOC;
-				g_shdr[BSS].sh_addr =  phdr[i].p_vaddr - bias + phdr[i].p_filesz;
-				//因为bss段映射到到load节的最后，加上so里面文件大小与内存映射大小不一致的基本只有bss，所以内存多出来的内容基本就是bss段的大小。
-				g_shdr[BSS].sh_size = phdr[i].p_memsz - phdr[i].p_filesz;
-				g_shdr[BSS].sh_offset = g_shdr[BSS].sh_addr;
-				g_shdr[BSS].sh_addralign = 4;
+				lastLoad = phdr[i];
 			}
 		}
 		else if(p_type == PT_DYNAMIC) {
@@ -125,6 +116,7 @@ static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer, s
 	int n = dyn_size / sizeof(Elf32_Dyn);
 	
 	Elf32_Word __global_offset_table = 0;
+	int nDynSyms = 0;
 	for (int i=0; i < n; i++) {
 		int tag = dyn[i].d_tag;
 		switch (tag) {
@@ -169,6 +161,8 @@ static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer, s
 				g_shdr[HASH].sh_info = 1;
 				g_shdr[HASH].sh_addralign = 4;
 				g_shdr[HASH].sh_entsize = 4;
+				//linker源码，DT_HASH实际上是通过hashtable在加速动态符号的查找，所以hashtable的大小就是动态符号表的大小
+				nDynSyms = nchain;
 				break;
 			}
 			case DT_REL:
@@ -268,7 +262,7 @@ static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer, s
 		g_shdr[DATA].sh_flags = SHF_WRITE | SHF_ALLOC;
 		g_shdr[DATA].sh_addr = gotEnd;
 		g_shdr[DATA].sh_offset = g_shdr[DATA].sh_addr;
-		g_shdr[DATA].sh_size = load.p_vaddr + load.p_filesz - g_shdr[DATA].sh_addr;
+		g_shdr[DATA].sh_size = lastLoad.p_vaddr + lastLoad.p_memsz - g_shdr[DATA].sh_addr;
 		g_shdr[DATA].sh_addralign = 4;
 		if (gotEnd > gotBase)
 		{
@@ -284,40 +278,44 @@ static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer, s
 			g_shdr[GOT].sh_size = gotEnd - __global_offset_table;
 		}
 	}
-	
-	//STRTAB地址 - SYMTAB地址 = SYMTAB大小
-	//g_shdr[DYNSYM].sh_size = g_shdr[DYNSTR].sh_addr - g_shdr[DYNSYM].sh_addr;
-	const char *strbase = buffer+g_shdr[DYNSTR].sh_addr;
-	const char *strend = strbase+g_shdr[DYNSTR].sh_size;
-	const char *symbase = buffer+g_shdr[DYNSYM].sh_addr;
-	unsigned symCount = 0;
-	Elf32_Sym *sym = (Elf32_Sym *)symbase;
-	while(1) {
-		//符号在符号表里面的偏移，不用考虑文件与内存加载之间bias
-        size_t off = sym->st_name;
-        const char *symName = strbase + off;
-        size_t symOff = sym->st_value;
-		size_t symValue = (size_t)buffer + symOff;
-		//printf("symName=%p strbase=%p strend=%p\n", symName, strbase, strend);
-		if ((size_t)symName < (size_t)strbase || (size_t)symName > (size_t)strend) {
-			//动态表的符号偏移不在动态字符串表之内，说明非法，已经没有合法的动态符号了。
-			//printf("break 1 symName=%s strbase");
-			break;
+
+	//如果之前没有HASH表，无法确定符号表大小，只能靠猜测来获取符号表大小
+	if (nDynSyms == 0)
+	{
+		printf("warning DT_HASH not found,try to detect dynsym size...\n");
+		const char *strbase = buffer + g_shdr[DYNSTR].sh_addr;
+		const char *strend = strbase + g_shdr[DYNSTR].sh_size;
+		const char *symbase = buffer + g_shdr[DYNSYM].sh_addr;
+		unsigned symCount = 0;
+		Elf32_Sym *sym = (Elf32_Sym *) symbase;
+		while (1) {
+			//符号在符号表里面的偏移，不用考虑文件与内存加载之间bias
+			size_t off = sym->st_name;
+			const char *symName = strbase + off;
+			size_t symOff = sym->st_value;
+			size_t symValue = (size_t) buffer + symOff;
+			//printf("symName=%p strbase=%p strend=%p\n", symName, strbase, strend);
+			if ((size_t) symName < (size_t) strbase || (size_t) symName > (size_t) strend) {
+				//动态表的符号偏移不在动态字符串表之内，说明非法，已经没有合法的动态符号了。
+				//printf("break 1 symName=%s strbase");
+				break;
+			}
+			/*
+            //有些符号在bss里面，不在dump出来的文件范围内
+            if (symValue< (size_t)buffer || symValue > (size_t)(buffer+len)) {
+                //动态表指向文件偏移不在文件范围之内，说明非法，已经没有合法的动态符号了。
+                break;
+            }
+             */
+			symCount++;
+			sym++;
 		}
-		/*
-		//有些符号在bss里面，不在dump出来的文件范围内
-		if (symValue< (size_t)buffer || symValue > (size_t)(buffer+len)) {
-			//动态表指向文件偏移不在文件范围之内，说明非法，已经没有合法的动态符号了。
-			break;
-		}
-		 */
-		symCount++;
-		sym++;
+		nDynSyms = symCount;
 	}
    
 	//printf("size %d addr %08x\n", g_shdr[DYNSTR].sh_size, g_shdr[DYNSTR].sh_addr);
-	g_shdr[DYNSYM].sh_size = symCount * 16;
-	
+	g_shdr[DYNSYM].sh_size = nDynSyms * 16;
+
 	g_shdr[PLT].sh_name = _get_off_in_shstrtab(".plt");
 	g_shdr[PLT].sh_type = SHT_PROGBITS;
 	g_shdr[PLT].sh_flags = SHF_ALLOC | SHF_EXECINSTR;
@@ -325,14 +323,17 @@ static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer, s
 	g_shdr[PLT].sh_offset = g_shdr[PLT].sh_addr;
 	g_shdr[PLT].sh_size = (20 + 12 * (g_shdr[RELPLT].sh_size) / sizeof(Elf32_Rel));
 	g_shdr[PLT].sh_addralign = 4;
-	
-	g_shdr[TEXT].sh_name = _get_off_in_shstrtab(".text");
-	g_shdr[TEXT].sh_type = SHT_PROGBITS;
-	g_shdr[TEXT].sh_flags = SHF_ALLOC | SHF_EXECINSTR;
-	g_shdr[TEXT].sh_addr = g_shdr[PLT].sh_addr + g_shdr[PLT].sh_size;
-	g_shdr[TEXT].sh_offset = g_shdr[TEXT].sh_addr;
-	g_shdr[TEXT].sh_size = g_shdr[ARMEXIDX].sh_addr - g_shdr[TEXT].sh_addr;
-	
+
+	if (g_shdr[ARMEXIDX].sh_addr !=0) {
+		//text段的确定依赖ARMEXIDX的决定，ARMEXIDX没有的话，干脆不要text段了，因为text对ida分析没什么作用，ida对第一个LOAD的分析已经函数了text段的作用ARMEXIDX
+		g_shdr[TEXT].sh_name = _get_off_in_shstrtab(".text");
+		g_shdr[TEXT].sh_type = SHT_PROGBITS;
+		g_shdr[TEXT].sh_flags = SHF_ALLOC | SHF_EXECINSTR;
+		g_shdr[TEXT].sh_addr = g_shdr[PLT].sh_addr + g_shdr[PLT].sh_size;
+		g_shdr[TEXT].sh_offset = g_shdr[TEXT].sh_addr;
+		g_shdr[TEXT].sh_size = g_shdr[ARMEXIDX].sh_addr - g_shdr[TEXT].sh_addr;
+	}
+
 	g_shdr[STRTAB].sh_name = _get_off_in_shstrtab(".shstrtab");
 	g_shdr[STRTAB].sh_type = SHT_STRTAB;
 	g_shdr[STRTAB].sh_flags = SHT_NULL;
