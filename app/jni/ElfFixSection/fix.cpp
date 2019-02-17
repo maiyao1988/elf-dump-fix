@@ -222,7 +222,7 @@ static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer, s
 				break;
 				
 			case DT_INIT_ARRAYSZ:
-				g_shdr[INITARRAY].sh_size = dyn[i].d_un.d_ptr - bias;
+				g_shdr[INITARRAY].sh_size = dyn[i].d_un.d_ptr;
 				break;
 				
 			case DT_PLTGOT:
