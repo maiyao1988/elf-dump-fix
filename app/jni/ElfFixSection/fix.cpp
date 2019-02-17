@@ -1,5 +1,6 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include "fix.h"
+#include "elf.h"
 
 static const char* g_str = "..dynsym..dynstr..hash..rel.dyn..rel.plt..plt..text..ARM.exidx..fini_array..init_array..dynamic..got..data..bss..shstrtab\0";
 static const char* g_strtabcontent = "\0.dynsym\0.dynstr\0.hash\0.rel.dyn\0.rel.plt\0.plt\0.text\0.ARM.exidx\0.fini_array\0.init_array\0.dynamic\0.got\0.data\0.bss\0.shstrtab\0";
@@ -71,6 +72,8 @@ static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer, s
 	}
 	int loadIndex = 0;
 	for(int i = 0;i < ph_num;i++) {
+		phdr[i].p_vaddr -= bias;
+		phdr[i].p_paddr = phdr[i].p_vaddr;
 		//段在文件中的偏移修正，因为从内存dump出来的文件偏移就是在内存的偏移
 		phdr[i].p_offset =  phdr[i].p_vaddr;
 		phdr[i].p_filesz = phdr[i].p_memsz;
@@ -86,8 +89,8 @@ static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer, s
 			g_shdr[DYNAMIC].sh_name = _get_off_in_shstrtab(".dynamic");
 			g_shdr[DYNAMIC].sh_type = SHT_DYNAMIC;
 			g_shdr[DYNAMIC].sh_flags = SHF_WRITE | SHF_ALLOC;
-			g_shdr[DYNAMIC].sh_addr = phdr[i].p_vaddr - bias;
-			g_shdr[DYNAMIC].sh_offset = phdr[i].p_vaddr - bias;
+			g_shdr[DYNAMIC].sh_addr = phdr[i].p_vaddr;
+			g_shdr[DYNAMIC].sh_offset = phdr[i].p_vaddr;
 			g_shdr[DYNAMIC].sh_size = phdr[i].p_memsz;
 			g_shdr[DYNAMIC].sh_link = 2;
 			g_shdr[DYNAMIC].sh_info = 0;
@@ -95,7 +98,7 @@ static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer, s
 			g_shdr[DYNAMIC].sh_entsize = 8;
 
 			dyn_size = phdr[i].p_memsz;
-			dyn_off = phdr[i].p_vaddr-bias;
+			dyn_off = phdr[i].p_vaddr;
 		}
 		
 		else if(phdr[i].p_type == PT_LOPROC || phdr[i].p_type == PT_LOPROC + 1) {
@@ -112,7 +115,7 @@ static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer, s
 		}
 	}
 	
-	const Elf32_Dyn* dyn = (const Elf32_Dyn*)(buffer+dyn_off);
+	Elf32_Dyn* dyn = (Elf32_Dyn*)(buffer+dyn_off);
 	int n = dyn_size / sizeof(Elf32_Dyn);
 	
 	Elf32_Word __global_offset_table = 0;
@@ -121,11 +124,12 @@ static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer, s
 		int tag = dyn[i].d_tag;
 		switch (tag) {
 			case DT_SYMTAB:
+				dyn[i].d_un.d_ptr -= bias;
 				g_shdr[DYNSYM].sh_name = _get_off_in_shstrtab(".dynsym");
 				g_shdr[DYNSYM].sh_type = SHT_DYNSYM;
 				g_shdr[DYNSYM].sh_flags = SHF_ALLOC;
-				g_shdr[DYNSYM].sh_addr = dyn[i].d_un.d_ptr - bias;
-				g_shdr[DYNSYM].sh_offset = dyn[i].d_un.d_ptr - bias;
+				g_shdr[DYNSYM].sh_addr = dyn[i].d_un.d_ptr;
+				g_shdr[DYNSYM].sh_offset = dyn[i].d_un.d_ptr;
 				g_shdr[DYNSYM].sh_link = 2;
 				g_shdr[DYNSYM].sh_info = 1;
 				g_shdr[DYNSYM].sh_addralign = 4;
@@ -133,11 +137,12 @@ static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer, s
 				break;
 				
 			case DT_STRTAB:
+				dyn[i].d_un.d_ptr -= bias;
 				g_shdr[DYNSTR].sh_name = _get_off_in_shstrtab(".dynstr");
 				g_shdr[DYNSTR].sh_type = SHT_STRTAB;
 				g_shdr[DYNSTR].sh_flags = SHF_ALLOC;
-				g_shdr[DYNSTR].sh_offset = dyn[i].d_un.d_ptr - bias;
-				g_shdr[DYNSTR].sh_addr = dyn[i].d_un.d_ptr - bias;
+				g_shdr[DYNSTR].sh_offset = dyn[i].d_un.d_ptr;
+				g_shdr[DYNSTR].sh_addr = dyn[i].d_un.d_ptr;
 				g_shdr[DYNSTR].sh_addralign = 1;
 				g_shdr[DYNSTR].sh_entsize = 0;
 				break;
@@ -148,12 +153,13 @@ static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer, s
 				
 			case DT_HASH:
 			{
+				dyn[i].d_un.d_ptr -= bias;
 				int nbucket = 0, nchain = 0;
 				g_shdr[HASH].sh_name = _get_off_in_shstrtab(".hash");
 				g_shdr[HASH].sh_type = SHT_HASH;
 				g_shdr[HASH].sh_flags = SHF_ALLOC;
-				g_shdr[HASH].sh_addr = dyn[i].d_un.d_ptr - bias;
-				g_shdr[HASH].sh_offset = dyn[i].d_un.d_ptr - bias;
+				g_shdr[HASH].sh_addr = dyn[i].d_un.d_ptr;
+				g_shdr[HASH].sh_offset = dyn[i].d_un.d_ptr;
 				memcpy(&nbucket, buffer + g_shdr[HASH].sh_offset, 4);
 				memcpy(&nchain, buffer + g_shdr[HASH].sh_offset + 4, 4);
 				g_shdr[HASH].sh_size = (nbucket + nchain + 2) * sizeof(int);
@@ -166,11 +172,12 @@ static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer, s
 				break;
 			}
 			case DT_REL:
+				dyn[i].d_un.d_ptr -= bias;
 				g_shdr[RELDYN].sh_name = _get_off_in_shstrtab(".rel.dyn");
 				g_shdr[RELDYN].sh_type = SHT_REL;
 				g_shdr[RELDYN].sh_flags = SHF_ALLOC;
-				g_shdr[RELDYN].sh_addr = dyn[i].d_un.d_ptr - bias;
-				g_shdr[RELDYN].sh_offset = dyn[i].d_un.d_ptr - bias;
+				g_shdr[RELDYN].sh_addr = dyn[i].d_un.d_ptr;
+				g_shdr[RELDYN].sh_offset = dyn[i].d_un.d_ptr;
 				g_shdr[RELDYN].sh_link = 4;
 				g_shdr[RELDYN].sh_info = 0;
 				g_shdr[RELDYN].sh_addralign = 4;
@@ -182,11 +189,12 @@ static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer, s
 				break;
 				
 			case DT_JMPREL:
+				dyn[i].d_un.d_ptr -= bias;
 				g_shdr[RELPLT].sh_name = _get_off_in_shstrtab(".rel.plt");
 				g_shdr[RELPLT].sh_type = SHT_REL;
 				g_shdr[RELPLT].sh_flags = SHF_ALLOC;
-				g_shdr[RELPLT].sh_addr = dyn[i].d_un.d_ptr - bias;
-				g_shdr[RELPLT].sh_offset = dyn[i].d_un.d_ptr - bias;
+				g_shdr[RELPLT].sh_addr = dyn[i].d_un.d_ptr;
+				g_shdr[RELPLT].sh_offset = dyn[i].d_un.d_ptr;
 				g_shdr[RELPLT].sh_link = 1;
 				g_shdr[RELPLT].sh_info = 6;
 				g_shdr[RELPLT].sh_addralign = 4;
@@ -198,34 +206,37 @@ static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer, s
 				break;
 				
 			case DT_FINI_ARRAY:
+				dyn[i].d_un.d_ptr -= bias;
 				g_shdr[FINIARRAY].sh_name = _get_off_in_shstrtab(".fini_array");
 				g_shdr[FINIARRAY].sh_type = 15;
 				g_shdr[FINIARRAY].sh_flags = SHF_WRITE | SHF_ALLOC;
-				g_shdr[FINIARRAY].sh_offset = dyn[i].d_un.d_ptr - bias;
-				g_shdr[FINIARRAY].sh_addr = dyn[i].d_un.d_ptr - bias;
+				g_shdr[FINIARRAY].sh_offset = dyn[i].d_un.d_ptr;
+				g_shdr[FINIARRAY].sh_addr = dyn[i].d_un.d_ptr;
 				g_shdr[FINIARRAY].sh_addralign = 4;
 				g_shdr[FINIARRAY].sh_entsize = 0;
 				break;
 				
 			case DT_FINI_ARRAYSZ:
-				g_shdr[FINIARRAY].sh_size = dyn[i].d_un.d_ptr;
+				g_shdr[FINIARRAY].sh_size = dyn[i].d_un.d_val;
 				break;
 				
 			case DT_INIT_ARRAY:
+				dyn[i].d_un.d_ptr -= bias;
 				g_shdr[INITARRAY].sh_name = _get_off_in_shstrtab(".init_array");
 				g_shdr[INITARRAY].sh_type = 14;
 				g_shdr[INITARRAY].sh_flags = SHF_WRITE | SHF_ALLOC;
-				g_shdr[INITARRAY].sh_offset = dyn[i].d_un.d_ptr - bias;
-				g_shdr[INITARRAY].sh_addr = dyn[i].d_un.d_ptr - bias;
+				g_shdr[INITARRAY].sh_offset = dyn[i].d_un.d_ptr;
+				g_shdr[INITARRAY].sh_addr = dyn[i].d_un.d_ptr;
 				g_shdr[INITARRAY].sh_addralign = 4;
 				g_shdr[INITARRAY].sh_entsize = 0;
 				break;
 				
 			case DT_INIT_ARRAYSZ:
-				g_shdr[INITARRAY].sh_size = dyn[i].d_un.d_ptr;
+				g_shdr[INITARRAY].sh_size = dyn[i].d_un.d_val;
 				break;
 				
 			case DT_PLTGOT:
+				dyn[i].d_un.d_ptr -= bias;
 				__global_offset_table = dyn[i].d_un.d_ptr;
 				g_shdr[GOT].sh_name = _get_off_in_shstrtab(".got");
 				g_shdr[GOT].sh_type = SHT_PROGBITS;
@@ -256,7 +267,8 @@ static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer, s
 		//上面那种方式计算不可靠，根据libGameCore.so分析，nRelPlt比数量比实际GOT数量多10个，暂时没发现这十个成员的特殊性
 		//.got的结尾就是.data的开始，根据经验，data的地址总是与0x1000对齐。以此来修正地址
 	 	gotEnd = gotEnd & ~0x0FFF;
-		
+
+
 		g_shdr[DATA].sh_name = _get_off_in_shstrtab(".data");
 		g_shdr[DATA].sh_type = SHT_PROGBITS;
 		g_shdr[DATA].sh_flags = SHF_WRITE | SHF_ALLOC;
