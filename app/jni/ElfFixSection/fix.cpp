@@ -62,6 +62,7 @@ Elf32_Word _get_mem_flag(Elf32_Phdr *phdr, size_t phNum, size_t memAddr) {
 			return phdr[i].p_flags;
 		}
 	}
+	return 0;
 }
 
 static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer, size_t len)
