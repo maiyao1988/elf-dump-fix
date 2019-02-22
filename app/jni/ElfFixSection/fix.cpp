@@ -66,7 +66,7 @@ static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer, s
 	for(int i = 0;i < ph_num;i++) {
         if (phdr[i].p_type == PT_LOAD) {
         	//see linker get_elf_exec_load_bias
-            bias = phdr[i].p_vaddr - phdr[i].p_offset;
+            bias = phdr[i].p_vaddr;
 			break;
 		}
 	}
@@ -291,13 +291,13 @@ static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer, s
 		}
 	}
 
+	const char *symbase = buffer + g_shdr[DYNSYM].sh_addr;
 	//如果之前没有HASH表，无法确定符号表大小，只能靠猜测来获取符号表大小
 	if (nDynSyms == 0)
 	{
 		printf("warning DT_HASH not found,try to detect dynsym size...\n");
 		const char *strbase = buffer + g_shdr[DYNSTR].sh_addr;
 		const char *strend = strbase + g_shdr[DYNSTR].sh_size;
-		const char *symbase = buffer + g_shdr[DYNSYM].sh_addr;
 		unsigned symCount = 0;
 		Elf32_Sym *sym = (Elf32_Sym *) symbase;
 		while (1) {
@@ -324,9 +324,22 @@ static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer, s
 		}
 		nDynSyms = symCount;
 	}
+
+	Elf32_Sym *sym = (Elf32_Sym *) symbase;
+	for (int i = 0; i < nDynSyms; i++) {
+	    //发现某些so如饿了么libdeadpool通过将符号表里面的type设置成错误的值，从而使ida分析出错
+	    //这里如果发现值是非法的，强制指定为FUNC类型，让ida分析
+		unsigned char info = sym->st_info;
+		unsigned int type = ELF32_ST_TYPE(info);
+		if (type > STT_FILE) {
+			unsigned char c = (unsigned char)(info & 0xF0);
+			sym->st_info = (unsigned char)(c | STT_FUNC);
+		}
+		sym++;
+	}
    
 	//printf("size %d addr %08x\n", g_shdr[DYNSTR].sh_size, g_shdr[DYNSTR].sh_addr);
-	g_shdr[DYNSYM].sh_size = nDynSyms * 16;
+	g_shdr[DYNSYM].sh_size = nDynSyms * sizeof(Elf32_Sym);
 
 	g_shdr[PLT].sh_name = _get_off_in_shstrtab(".plt");
 	g_shdr[PLT].sh_type = SHT_PROGBITS;
