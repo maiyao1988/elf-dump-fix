@@ -54,6 +54,16 @@ static void _fix_relative_rebase(const char *buffer, size_t bufSize, Elf32_Word 
     }
 }
 
+Elf32_Word _get_mem_flag(Elf32_Phdr *phdr, size_t phNum, size_t memAddr) {
+	for (int i = 0; i < phNum; i++) {
+		Elf32_Addr begin = phdr[i].p_vaddr;
+		Elf32_Addr end = begin + phdr[i].p_memsz;
+		if (memAddr > begin && memAddr < end) {
+			return phdr[i].p_flags;
+		}
+	}
+}
+
 static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer, size_t len)
 {
 	Elf32_Phdr lastLoad = { 0 };
@@ -333,6 +343,18 @@ static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer, s
 		unsigned int type = ELF32_ST_TYPE(info);
 		if (type > STT_FILE) {
 			unsigned char c = (unsigned char)(info & 0xF0);
+			unsigned newType = STT_OBJECT;
+			if (sym->st_value == 0) {
+				//当符号值为零说明是个外部符号，此时类型判断不准，给一个通常的就可
+				newType = STT_FUNC;
+			}
+			else {
+				//内存符号可以通过内存读写属性来判断是什么符号
+				Elf32_Word flag = _get_mem_flag(phdr, ph_num, sym->st_value);
+				if (flag & PF_X) {
+					newType = STT_FUNC;
+				}
+			}
 			sym->st_info = (unsigned char)(c | STT_FUNC);
 		}
 		sym++;
