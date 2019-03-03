@@ -27,7 +27,7 @@ static long _get_file_len(FILE *p)
 	return fsize;
 }
 
-static void _fix_relative_rebase(const char *buffer, size_t bufSize, Elf32_Word imageBase)
+static void _fix_relative_rebase(char *buffer, size_t bufSize, Elf32_Word imageBase)
 {
     Elf32_Addr addr = g_shdr[RELDYN].sh_addr;
     size_t sz = g_shdr[RELDYN].sh_size;
@@ -65,7 +65,27 @@ Elf32_Word _get_mem_flag(Elf32_Phdr *phdr, size_t phNum, size_t memAddr) {
 	return 0;
 }
 
-static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer, size_t len)
+static void _fix_rel_bias(Elf32_Rel *relDyn, size_t relCount, size_t bias) {
+	for (int i = 0; i < relCount; i++) {
+		unsigned type = ELF32_R_TYPE(relDyn[i].r_info);
+		unsigned sym = ELF32_R_SYM(relDyn[i].r_info);
+		//这两种重定位地址都是相对于loadAddr的，所以要修正
+		if (type == R_ARM_JUMP_SLOT || type == R_ARM_RELATIVE) {
+		    if (relDyn[i].r_offset > 0) {
+				relDyn[i].r_offset -= bias;
+			}
+		}
+	}
+}
+static void _fix_dynsym_bias(Elf32_Sym *dysym, size_t count, size_t bias) {
+	for (int i = 0; i < count; ++i) {
+		if (dysym[i].st_value > 0) {
+			dysym[i].st_value -= bias;
+		}
+	}
+}
+
+static void _regen_section_header(const Elf32_Ehdr *pehdr, char *buffer, size_t len)
 {
 	Elf32_Phdr lastLoad = { 0 };
 	Elf32_Phdr *phdr = (Elf32_Phdr*)(buffer + pehdr->e_phoff);
@@ -126,7 +146,7 @@ static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer, s
 		}
 	}
 	
-	Elf32_Dyn* dyn = (Elf32_Dyn*)(buffer+dyn_off);
+	Elf32_Dyn *dyn = (Elf32_Dyn*)(buffer+dyn_off);
 	int n = dyn_size / sizeof(Elf32_Dyn);
 	
 	Elf32_Word __global_offset_table = 0;
@@ -316,20 +336,12 @@ static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer, s
 			size_t off = sym->st_name;
 			const char *symName = strbase + off;
 			size_t symOff = sym->st_value;
-			size_t symValue = (size_t) buffer + symOff;
 			//printf("symName=%p strbase=%p strend=%p\n", symName, strbase, strend);
 			if ((size_t) symName < (size_t) strbase || (size_t) symName > (size_t) strend) {
 				//动态表的符号偏移不在动态字符串表之内，说明非法，已经没有合法的动态符号了。
 				//printf("break 1 symName=%s strbase");
 				break;
 			}
-			/*
-            //有些符号在bss里面，不在dump出来的文件范围内
-            if (symValue< (size_t)buffer || symValue > (size_t)(buffer+len)) {
-                //动态表指向文件偏移不在文件范围之内，说明非法，已经没有合法的动态符号了。
-                break;
-            }
-             */
 			symCount++;
 			sym++;
 		}
@@ -388,6 +400,18 @@ static void _regen_section_header(const Elf32_Ehdr *pehdr, const char *buffer, s
 	g_shdr[STRTAB].sh_addr = 0;	//写文件的时候修正
 	g_shdr[STRTAB].sh_size = (Elf32_Word)strlen(g_str) + 1;
 	g_shdr[STRTAB].sh_addralign = 1;
+
+
+	Elf32_Rel *relDyn = (Elf32_Rel*)(buffer + g_shdr[RELDYN].sh_addr);
+	size_t relCount = g_shdr[RELDYN].sh_size/sizeof(Elf32_Rel);
+	_fix_rel_bias(relDyn, relCount, bias);
+
+	Elf32_Rel *relPlt = (Elf32_Rel*)(buffer + g_shdr[RELPLT].sh_addr);
+	size_t relpltCount = g_shdr[RELPLT].sh_size/sizeof(Elf32_Rel);
+	_fix_rel_bias(relPlt, relpltCount, bias);
+
+	Elf32_Sym *dynsym = (Elf32_Sym*)(buffer+g_shdr[DYNSYM].sh_addr);
+	_fix_dynsym_bias(dynsym, nDynSyms, bias);
 }
 
 int fix_so(const char *openPath, const char *outPutPath, unsigned ptrbase)

@@ -3,6 +3,7 @@ package com.reverse.my.reverseutils;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.widget.TextView;
+import android.widget.Toast;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -10,6 +11,20 @@ public class MainActivity extends AppCompatActivity {
     static {
         System.loadLibrary("rev");
     }
+
+    private int testSum(int from, int to) {
+        int sum=0;
+        for (int i = from; i < to;i++) {
+            sum+=i;
+        }
+        return sum;
+    }
+
+    private String getStr() {
+        String r = String.format("hello %d %s", 1, "kkk");
+        return r;
+    }
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -19,6 +34,9 @@ public class MainActivity extends AppCompatActivity {
         // Example of a call to a native method
         TextView tv = (TextView) findViewById(R.id.sample_text);
         tv.setText(stringFromJNI());
+        int s = testSum(1, 10);
+        String str = getStr();
+        Toast.makeText(this, s+str, Toast.LENGTH_LONG).show();
     }
 
     /**
