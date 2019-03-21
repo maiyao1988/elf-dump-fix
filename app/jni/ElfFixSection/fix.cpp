@@ -101,6 +101,21 @@ static void _regen_section_header(const Elf32_Ehdr *pehdr, char *buffer, size_t 
 			break;
 		}
 	}
+
+	Elf32_Word maxLoad = 0;
+	for(int i = 0;i < ph_num;i++) {
+		if (phdr[i].p_type == PT_LOAD) {
+		    //取得最后一个load，获得整个so加载大小
+			maxLoad = phdr[i].p_vaddr + phdr[i].p_memsz - bias;
+		}
+	}
+	if (maxLoad > len) {
+		//加载的范围大于整个dump下来的so，有问题，先警告
+		printf("warning load size [%u] is bigger than so size [%u], dump maybe incomplete!!!\n", maxLoad, len);
+		//TODO:should we fix it???
+	}
+
+
 	int loadIndex = 0;
 	for(int i = 0;i < ph_num;i++) {
 		phdr[i].p_vaddr -= bias;

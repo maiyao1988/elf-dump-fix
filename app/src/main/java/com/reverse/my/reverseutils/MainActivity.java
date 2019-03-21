@@ -21,8 +21,15 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private String getStr() {
-        String r = String.format("hello %d %s", 1, "kkk");
-        return r;
+        String obj = new String("123");
+        if (obj.compareTo("321") > 0) {
+            return "333";
+        }
+        return obj;
+    }
+
+    private Object getStr2() {
+        return new MainActivity();
     }
 
 
