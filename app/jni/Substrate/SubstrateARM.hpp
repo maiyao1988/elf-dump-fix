@@ -46,7 +46,7 @@ enum A$c {
 #define A$msr_cpsr_f_rm(rm) /* msr cpsr_f, rm */ \
     (0xe128f000 | (rm))
 #define A$ldr_rd_$rn_im$(rd, rn, im) /* ldr rd, [rn, #im] */ \
-    (0xe5100000 | ((im) < 0 ? 0 : 1 << 23) | ((rn) << 16) | ((rd) << 12) | abs(im))
+    (0xe5100000 | ((im) < 0 ? 0 : 1 << 23) | ((rn) << 16) | ((rd) << 12) | abs((long)im))
 #define A$str_rd_$rn_im$(rd, rn, im) /* sr rd, [rn, #im] */ \
     (0xe5000000 | ((im) < 0 ? 0 : 1 << 23) | ((rn) << 16) | ((rd) << 12) | abs(im))
 #define A$sub_rd_rn_$im(rd, rn, im) /* sub, rd, rn, #im */ \

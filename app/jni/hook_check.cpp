@@ -33,7 +33,7 @@ int inline_hook_check(const char *libPath) {
         return 0;
     }
 
-    int fd = open(mapInfo.libPath, O_RDONLY);
+    int fd = open(mapInfo.filePath, O_RDONLY);
     struct stat st = {0};
     fstat(fd, &st);
 

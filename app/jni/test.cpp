@@ -2,6 +2,7 @@
 
 #include <jni.h>
 #include <string>
+#include <vector>
 #include <dlfcn.h>
 #include <unistd.h>
 #include <android/log.h>
@@ -31,6 +32,22 @@ Java_com_reverse_my_reverseutils_MainActivity_stringFromJNI(
 
     //inline_hook_check("libc.so");
     inline_hook_check("libart.so");
+
+    std::vector<int> v;
+    v.push_back(3);
+    v.push_back(5);
+    std::vector<int>::iterator it = v.begin();
+    for (;it != v.end(); it++) {
+        printf("%d", *it);
+    }
+
+    std::string s = "abc";
+    s = s + "ccc";
+    printf("string %s", s.c_str());
+
+    if (s == "bbb") {
+        printf("hello world %d", s.find("kkk"));
+    }
 
     /*
     void *p = fake_dlopen("libc.so", 0);

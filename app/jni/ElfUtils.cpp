@@ -11,7 +11,7 @@
 #include <elf.h>
 #include <string.h>
 
-int get_map_infos(MapInfo *info, const char *libpath) {
+int get_map_infos(MapInfo *info, const char *fileName) {
     const char *tag = __FUNCTION__;
     char buff[256] = {0};
     FILE *maps = fopen("/proc/self/maps", "r");
@@ -26,14 +26,14 @@ int get_map_infos(MapInfo *info, const char *libpath) {
 
     int found = 0;
     while(fgets(buff, sizeof(buff), maps)) {
-        const char *s = strstr(buff, libpath);
+        const char *s = strstr(buff, fileName);
         void *baseAddrTmp = (void*)-1;
         void *endAddrTmp = 0;
         if (s) {
             //just get the first line, which includes the base address.
             found = 1;
-            if(sscanf(buff, "%p-%p %*c%*c%*c%*c %*x %*x:%*x %*d %s", &baseAddrTmp, &endAddrTmp, info->libPath) != 3) {
-                __android_log_print(ANDROID_LOG_ERROR, tag, "failed to read load address for %s", libpath);
+            if(sscanf(buff, "%p-%p %*c%*c%*c%*c %*x %*x:%*x %*d %s", &baseAddrTmp, &endAddrTmp, info->filePath) != 3) {
+                __android_log_print(ANDROID_LOG_ERROR, tag, "failed to read load address for %s", fileName);
                 continue;
             }
             if (baseAddrTmp < baseAddr) {
@@ -47,13 +47,13 @@ int get_map_infos(MapInfo *info, const char *libpath) {
     fclose(maps);
 
     if(!found) {
-        __android_log_print(ANDROID_LOG_ERROR, tag, "%s not found in my userspace", libpath);
+        __android_log_print(ANDROID_LOG_ERROR, tag, "%s not found in my userspace", fileName);
         return -1;
     }
 
     info->baseAddr = baseAddr;
     info->endAddr = endAddr;
-    __android_log_print(ANDROID_LOG_INFO, tag, "%s loaded in Android at %p", libpath, baseAddr);
+    __android_log_print(ANDROID_LOG_INFO, tag, "%s loaded in Android at %p", fileName, baseAddr);
     return 0;
 }
 

@@ -12,6 +12,10 @@ public class MainActivity extends AppCompatActivity {
         System.loadLibrary("rev");
     }
 
+    private void callSetText(TextView textView) {
+        textView.setText("hehe");
+    }
+
     private int testSum(int from, int to) {
         int sum=0;
         for (int i = from; i < to;i++) {
@@ -32,6 +36,11 @@ public class MainActivity extends AppCompatActivity {
         return new MainActivity();
     }
 
+    private void test() {
+        TextView tv = (TextView) findViewById(R.id.sample_text);
+        tv.setText("aaa");
+    }
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -41,6 +50,7 @@ public class MainActivity extends AppCompatActivity {
         // Example of a call to a native method
         TextView tv = (TextView) findViewById(R.id.sample_text);
         tv.setText(stringFromJNI());
+        callSetText(tv);
         int s = testSum(1, 10);
         String str = getStr();
         Toast.makeText(this, s+str, Toast.LENGTH_LONG).show();

@@ -87,7 +87,7 @@ X 4790  ldr r*,[pc,#*]    */
 #define T1$ldr_rt_$rn_im$(rt, rn, im) /* ldr rt, [rn, #im] */ \
     (0xf850 | ((im < 0 ? 0 : 1) << 7) | (rn))
 #define T2$ldr_rt_$rn_im$(rt, rn, im) /* ldr rt, [rn, #im] */ \
-    (((rt) << 12) | abs(im))
+    (((rt) << 12) | abs((long)im))
 
 #define T1$mrs_rd_apsr(rd) /* mrs rd, apsr */ \
     (0xf3ef)

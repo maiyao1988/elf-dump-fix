@@ -30,12 +30,12 @@ typedef Elf32_Word Elf_Word;
 
 //给定模糊名字，取进程maps中匹配的maps信息
 struct MapInfo {
-    char libPath[256];
+    char filePath[256];
     void *baseAddr;
     void *endAddr;
 };
 
-int get_map_infos(MapInfo *info, const char *libpath);
+int get_map_infos(MapInfo *info, const char *fileName);
 
 #define RET_MEM 0
 #define RET_FILE 1
