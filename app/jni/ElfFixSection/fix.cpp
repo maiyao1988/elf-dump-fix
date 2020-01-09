@@ -201,7 +201,11 @@ static void _regen_section_header(const Elf_Ehdr_Type *pehdr, const char *buffer
 				g_shdr[DYNSYM].sh_link = 2;
 				g_shdr[DYNSYM].sh_info = 1;
 				g_shdr[DYNSYM].sh_addralign = 4;
-				g_shdr[DYNSYM].sh_entsize = 16;
+				if (isElf32) {
+					g_shdr[DYNSYM].sh_entsize = 16;
+				} else {
+					g_shdr[DYNSYM].sh_entsize = 24;
+				}
 				break;
 
 			case DT_STRTAB:
@@ -242,7 +246,6 @@ static void _regen_section_header(const Elf_Ehdr_Type *pehdr, const char *buffer
 			case DT_REL:
 				dyn[i].d_un.d_ptr -= bias;
 				g_shdr[RELDYN].sh_name = _get_off_in_shstrtab(".rel.dyn");
-				g_shdr[RELDYN].sh_type = SHT_REL;
 				g_shdr[RELDYN].sh_flags = SHF_ALLOC;
 				g_shdr[RELDYN].sh_addr = dyn[i].d_un.d_ptr;
 				g_shdr[RELDYN].sh_offset = dyn[i].d_un.d_ptr;
@@ -250,6 +253,21 @@ static void _regen_section_header(const Elf_Ehdr_Type *pehdr, const char *buffer
 				g_shdr[RELDYN].sh_info = 0;
 				g_shdr[RELDYN].sh_addralign = 4;
 				g_shdr[RELDYN].sh_entsize = 8;
+				g_shdr[RELDYN].sh_type = SHT_REL;
+				break;
+
+			case DT_RELA:
+			    //TODO:supoort rela.dyn
+				dyn[i].d_un.d_ptr -= bias;
+				g_shdr[RELDYN].sh_name = _get_off_in_shstrtab(".rel.dyn");
+				g_shdr[RELDYN].sh_flags = SHF_ALLOC;
+				g_shdr[RELDYN].sh_addr = dyn[i].d_un.d_ptr;
+				g_shdr[RELDYN].sh_offset = dyn[i].d_un.d_ptr;
+				g_shdr[RELDYN].sh_link = 4;
+				g_shdr[RELDYN].sh_info = 0;
+				g_shdr[RELDYN].sh_addralign = 4;
+				g_shdr[RELDYN].sh_entsize = 24;
+				g_shdr[RELDYN].sh_type = SHT_RELA;
 				break;
 
 			case DT_RELSZ:
@@ -259,14 +277,21 @@ static void _regen_section_header(const Elf_Ehdr_Type *pehdr, const char *buffer
 			case DT_JMPREL:
 				dyn[i].d_un.d_ptr -= bias;
 				g_shdr[RELPLT].sh_name = _get_off_in_shstrtab(".rel.plt");
-				g_shdr[RELPLT].sh_type = SHT_REL;
 				g_shdr[RELPLT].sh_flags = SHF_ALLOC;
 				g_shdr[RELPLT].sh_addr = dyn[i].d_un.d_ptr;
 				g_shdr[RELPLT].sh_offset = dyn[i].d_un.d_ptr;
 				g_shdr[RELPLT].sh_link = 1;
 				g_shdr[RELPLT].sh_info = 6;
 				g_shdr[RELPLT].sh_addralign = 4;
-				g_shdr[RELPLT].sh_entsize = 8;
+				if (isElf32) {
+					g_shdr[RELPLT].sh_entsize = 8;
+					g_shdr[RELPLT].sh_type = SHT_REL;
+				}
+				else {
+					g_shdr[RELPLT].sh_entsize = 24;
+					g_shdr[RELPLT].sh_type = SHT_RELA;
+				}
+
 				break;
 
 			case DT_PLTRELSZ:
