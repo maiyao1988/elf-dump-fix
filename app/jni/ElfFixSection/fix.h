@@ -27,4 +27,4 @@
 #define STRTAB 15
 //
 
-int fix_so(const char *openPath, const char *outPutPath, unsigned ptrbase);
+int fix_so(const char *openPath, const char *outPutPath, unsigned long long ptrbase);

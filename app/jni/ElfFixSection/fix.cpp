@@ -429,8 +429,9 @@ static void _regen_section_header(const Elf32_Ehdr *pehdr, char *buffer, size_t 
 	_fix_dynsym_bias(dynsym, nDynSyms, bias);
 }
 
-int fix_so(const char *openPath, const char *outPutPath, unsigned ptrbase)
+int fix_so(const char *openPath, const char *outPutPath, unsigned long long base)
 {
+	unsigned ptrbase = (unsigned)base;
 	FILE *fr = NULL, *fw = NULL;
 
 	fr = fopen(openPath,"rb");

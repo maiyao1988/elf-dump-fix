@@ -15,7 +15,7 @@ int main(int argc, char *argv[]) {
         return -1;
     }
     const char *openPath = argv[1];
-    unsigned base = (unsigned)strtoul(argv[2], 0, 16);
+    unsigned long long base = strtoull(argv[2], 0, 16);
     const char *outPutPath = argv[3];
     fix_so(openPath, outPutPath, base);
     
