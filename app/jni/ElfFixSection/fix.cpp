@@ -107,7 +107,7 @@ template <typename Elf_Ehdr_Type, typename Elf_Shdr_Type, typename Elf_Phdr_Type
 		typename Elf_Word_Type, typename Elf_Addr_Type, typename Elf_Sym_Type,
 		typename Elf_Dyn_Type, typename Elf_Rel_Type,
 		bool isElf32>
-static void _regen_section_header(const Elf_Ehdr_Type *pehdr, const char *buffer, size_t len, Elf_Shdr_Type *g_shdr)
+static void _regen_section_header(const Elf_Ehdr_Type *pehdr, const char *buffer, size_t len, Elf_Shdr_Type g_shdr[SHDRS])
 {
 	Elf_Phdr_Type lastLoad = { 0 };
 	Elf_Phdr_Type *phdr = (Elf_Phdr_Type*)(buffer + pehdr->e_phoff);
