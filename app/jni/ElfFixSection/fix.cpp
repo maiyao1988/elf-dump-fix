@@ -2,8 +2,8 @@
 #include "fix.h"
 #include "elf.h"
 
-static const char* g_str = "..dynsym..dynstr..hash..rel.dyn..rel.plt..plt..text..ARM.exidx..fini_array..init_array..dynamic..got..data..bss..shstrtab\0";
-static const char* g_strtabcontent = "\0.dynsym\0.dynstr\0.hash\0.rel.dyn\0.rel.plt\0.plt\0.text\0.ARM.exidx\0.fini_array\0.init_array\0.dynamic\0.got\0.data\0.bss\0.shstrtab\0";
+static const char* g_str = "..dynsym..dynstr..hash..rel.dyn..rel.plt..plt..text..ARM.exidx..fini_array..init_array..dynamic..got..data..bss..shstrtab..rela.dyn..rela.plt\0";
+static const char* g_strtabcontent = "\0.dynsym\0.dynstr\0.hash\0.rel.dyn\0.rel.plt\0.plt\0.text\0.ARM.exidx\0.fini_array\0.init_array\0.dynamic\0.got\0.data\0.bss\0.shstrtab\0.rela.dyn\0rela.plt\0";
 
 static uint32_t _get_off_in_shstrtab(const char *name)
 {
@@ -244,31 +244,25 @@ static void _regen_section_header(const Elf_Ehdr_Type *pehdr, const char *buffer
 				break;
 			}
 			case DT_REL:
+			case DT_RELA: {
 				dyn[i].d_un.d_ptr -= bias;
-				g_shdr[RELDYN].sh_name = _get_off_in_shstrtab(".rel.dyn");
 				g_shdr[RELDYN].sh_flags = SHF_ALLOC;
 				g_shdr[RELDYN].sh_addr = dyn[i].d_un.d_ptr;
 				g_shdr[RELDYN].sh_offset = dyn[i].d_un.d_ptr;
 				g_shdr[RELDYN].sh_link = 4;
 				g_shdr[RELDYN].sh_info = 0;
 				g_shdr[RELDYN].sh_addralign = 4;
-				g_shdr[RELDYN].sh_entsize = 8;
-				g_shdr[RELDYN].sh_type = SHT_REL;
+				if (tag == DT_REL) {
+					g_shdr[RELDYN].sh_entsize = 8;
+					g_shdr[RELDYN].sh_name = _get_off_in_shstrtab(".rel.dyn");
+					g_shdr[RELDYN].sh_type = SHT_REL;
+				} else {
+					g_shdr[RELDYN].sh_entsize = 24;
+					g_shdr[RELDYN].sh_name = _get_off_in_shstrtab(".rela.dyn");
+					g_shdr[RELDYN].sh_type = SHT_RELA;
+				}
 				break;
-
-			case DT_RELA:
-			    //TODO:supoort rela.dyn
-				dyn[i].d_un.d_ptr -= bias;
-				g_shdr[RELDYN].sh_name = _get_off_in_shstrtab(".rel.dyn");
-				g_shdr[RELDYN].sh_flags = SHF_ALLOC;
-				g_shdr[RELDYN].sh_addr = dyn[i].d_un.d_ptr;
-				g_shdr[RELDYN].sh_offset = dyn[i].d_un.d_ptr;
-				g_shdr[RELDYN].sh_link = 4;
-				g_shdr[RELDYN].sh_info = 0;
-				g_shdr[RELDYN].sh_addralign = 4;
-				g_shdr[RELDYN].sh_entsize = 24;
-				g_shdr[RELDYN].sh_type = SHT_RELA;
-				break;
+			}
 
 			case DT_RELSZ:
 				g_shdr[RELDYN].sh_size = dyn[i].d_un.d_val;
@@ -276,7 +270,6 @@ static void _regen_section_header(const Elf_Ehdr_Type *pehdr, const char *buffer
 
 			case DT_JMPREL:
 				dyn[i].d_un.d_ptr -= bias;
-				g_shdr[RELPLT].sh_name = _get_off_in_shstrtab(".rel.plt");
 				g_shdr[RELPLT].sh_flags = SHF_ALLOC;
 				g_shdr[RELPLT].sh_addr = dyn[i].d_un.d_ptr;
 				g_shdr[RELPLT].sh_offset = dyn[i].d_un.d_ptr;
@@ -284,10 +277,12 @@ static void _regen_section_header(const Elf_Ehdr_Type *pehdr, const char *buffer
 				g_shdr[RELPLT].sh_info = 6;
 				g_shdr[RELPLT].sh_addralign = 4;
 				if (isElf32) {
+					g_shdr[RELPLT].sh_name = _get_off_in_shstrtab(".rel.plt");
 					g_shdr[RELPLT].sh_entsize = 8;
 					g_shdr[RELPLT].sh_type = SHT_REL;
 				}
 				else {
+					g_shdr[RELPLT].sh_name = _get_off_in_shstrtab(".rela.plt");
 					g_shdr[RELPLT].sh_entsize = 24;
 					g_shdr[RELPLT].sh_type = SHT_RELA;
 				}

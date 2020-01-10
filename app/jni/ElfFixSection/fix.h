@@ -25,7 +25,6 @@
 #define DATA 13
 #define BSS 14
 #define STRTAB 15
-//#define RELADYN 16
 //
 
 int fix_so(const char *openPath, const char *outPutPath, uint64_t ptrbase);
