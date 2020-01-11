@@ -21,6 +21,8 @@ LOCAL_MODULE := rev
 LOCAL_SRC_FILES += $(wildcard $(LOCAL_PATH)/Substrate/*.cpp)
 LOCAL_SRC_FILES += $(wildcard $(LOCAL_PATH)/Substrate/*.c)
 LOCAL_SRC_FILES += $(wildcard $(LOCAL_PATH)/*.cpp)
+LOCAL_SRC_FILES += $(wildcard $(LOCAL_PATH)/ElfFixSection/*.cpp)
+LOCAL_SRC_FILES += $(wildcard $(LOCAL_PATH)/ElfFixSection/*.c)
 
 #$(warning "lc $(LOCAL_SRC_FILES)")
 

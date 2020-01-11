@@ -46,6 +46,11 @@ int dumpMemory(int pid, uint64_t begin, uint64_t end, const char *outPath) {
     }
     printf("try to read %s fp:%d, off=%016llx, sz=%d\n", bufMemPath, fMem, begin, sz);
     ssize_t szRead = read(fMem, mem, sz);
+    if (szRead < 0){
+        const char *reason = strerror(errno);
+        printf("read error return %d lasterr=[%s]", (int)szRead, reason);
+        return -1;
+    }
 
     printf("read return %d\n", (int)szRead);
 

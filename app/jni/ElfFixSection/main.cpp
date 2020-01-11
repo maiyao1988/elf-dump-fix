@@ -24,17 +24,17 @@ static int __main(int argc, char *argv[]) {
         return -1;
     }
 
-    int pid = strtol(argv[1], 0, 10);
+    long pid = strtol(argv[1], 0, 10);
     uint64_t begin = 0, end = 0;
     char bufBegin[255] = {0};
     const char *strBegin = _sandardlizeAddrs(bufBegin, argv[2]);
 
-    sscanf(strBegin, "%llx", &begin);
+    begin = strtoull(strBegin, 0, 16);
 
     char bufEnd[255] = {0};
     const char *strEnd = _sandardlizeAddrs(bufEnd, argv[3]);
 
-    sscanf(strEnd, "%llx", &end);
+    end = strtoull(strEnd, 0, 16);
 
     const char *outPath = argv[4];
     char tmpPath[255] = {0};
@@ -45,7 +45,7 @@ static int __main(int argc, char *argv[]) {
         stopBeforeDump = argv[5][0] != '0';
     }
     if (pid != 0 && stopBeforeDump) {
-        printf("stop process %d before dump\n", pid);
+        printf("stop process %ld before dump\n", pid);
         kill(pid, SIGSTOP);
     }
     int res = dumpMemory(pid, begin, end, tmpPath);
@@ -54,7 +54,7 @@ static int __main(int argc, char *argv[]) {
         return res;
     }
     if (pid != 0 && stopBeforeDump) {
-        printf("resume process %d after dump\n", pid);
+        printf("resume process %ld after dump\n", pid);
         kill(pid, SIGCONT);
     }
     chmod(tmpPath, 0666);
@@ -81,7 +81,7 @@ int main(int argc, char *argv[]) {
 }
 
 #include <jni.h>
-extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
+JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved)
 {
     JNIEnv* env = NULL;
     jint result = -1;
