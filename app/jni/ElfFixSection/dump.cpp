@@ -9,7 +9,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-int dumpMemory(int pid, void *begin, void *end, const char *outPath) {
+int dumpMemory(int pid, uint64_t begin, uint64_t end, const char *outPath) {
     char bufMaps[256] = "/proc/self/maps";
     char bufMemPath[256] = "/proc/self/mem";
 
@@ -17,7 +17,7 @@ int dumpMemory(int pid, void *begin, void *end, const char *outPath) {
         printf("warning, program run in user:%d, please run this program by root!!!\n", getuid());
     }
 
-    printf("try dump %d from %p to %p\n", pid, begin, end);
+    printf("try dump %d from %016llx to %016llx\n", pid, begin, end);
 
     if (pid != 0) {
         sprintf(bufMaps, "/proc/%d/maps", pid);
@@ -32,20 +32,19 @@ int dumpMemory(int pid, void *begin, void *end, const char *outPath) {
         return -1;
     }
 
-    size_t sz = (size_t)end - (size_t)begin;
+    size_t sz = (size_t)(end - begin);
     unsigned char *mem = (unsigned char*)malloc(sz);
     if (!mem) {
         close(fMem);
         return -2;
     }
     memset(mem, 0, sz);
-    size_t off1 = (size_t)begin;
 
-    off64_t r = lseek64(fMem, off1, SEEK_SET);
+    off64_t r = lseek64(fMem, begin, SEEK_SET);
     if (r < 0) {
         printf("fseek error return %d\n", (int)r);
     }
-    printf("try to read %s fp:%d, off=%p, sz=%d\n", bufMemPath, fMem, begin, sz);
+    printf("try to read %s fp:%d, off=%016llx, sz=%d\n", bufMemPath, fMem, begin, sz);
     ssize_t szRead = read(fMem, mem, sz);
 
     printf("read return %d\n", (int)szRead);

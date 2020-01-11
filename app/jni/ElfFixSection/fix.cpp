@@ -1,6 +1,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include "fix.h"
 #include "elf.h"
+#include "../../../../../../../usr/include/stdint.h"
 
 static const char* g_str = "..dynsym..dynstr..hash..rel.dyn..rel.plt..plt..text..ARM.exidx..fini_array..init_array..dynamic..got..data..bss..shstrtab..rela.dyn..rela.plt\0";
 static const char* g_strtabcontent = "\0.dynsym\0.dynstr\0.hash\0.rel.dyn\0.rel.plt\0.plt\0.text\0.ARM.exidx\0.fini_array\0.init_array\0.dynamic\0.got\0.data\0.bss\0.shstrtab\0.rela.dyn\0rela.plt\0";
@@ -50,7 +51,8 @@ static void _fix_relative_rebase(char *buffer, size_t bufSize, uint64_t imageBas
             Elf_Addr_Type off = rel->r_offset;
             unsigned *offIntBuf = (unsigned*)(buffer+off);
             if (border < (const char*)offIntBuf) {
-                printf("relocation off %x invalid, out of border...\n", off);
+            	uint64_t tmp = off;
+                printf("relocation off %llx invalid, out of border...\n", tmp);
 				continue;
             }
             unsigned addrNow = *offIntBuf;
@@ -334,10 +336,12 @@ static void _regen_section_header(const Elf_Ehdr_Type *pehdr, const char *buffer
 				g_shdr[GOT].sh_offset = g_shdr[GOT].sh_addr;
 				g_shdr[GOT].sh_addralign = 4;
 				break;
-			case DT_INIT:
+			case DT_INIT: {
 				//找到init段代码，但是无法知道有多长，只好做一个警告，提醒使用者init段存在，脱壳代码可能存在这里
-				printf("warning .init exist at 0x%08x\n", dyn[i].d_un.d_ptr);
+				uint64_t tmp = dyn[i].d_un.d_ptr;
+				printf("warning .init exist at 0x%016llx\n", tmp);
 				break;
+			}
 			case DT_TEXTREL:
 				//地址相关的so，警告，暂时不做处理
 				printf("warning DT_TEXTREL found, so is address depend.\n");

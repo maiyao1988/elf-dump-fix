@@ -6,7 +6,7 @@
 #include <sys/stat.h>
 #include "fix.h"
 
-int dumpMemory(int pid, void *begin, void *end, const char *outPath);
+int dumpMemory(int pid, uint64_t begin, uint64_t end, const char *outPath);
 
 static const char *_sandardlizeAddrs(char *buf, const char *addr) {
     if (addr[0] != '0' || addr[1] != 'x') {
@@ -25,16 +25,16 @@ static int __main(int argc, char *argv[]) {
     }
 
     int pid = strtol(argv[1], 0, 10);
-    void *begin = 0, *end = 0;
+    uint64_t begin = 0, end = 0;
     char bufBegin[255] = {0};
     const char *strBegin = _sandardlizeAddrs(bufBegin, argv[2]);
 
-    sscanf(strBegin, "%p", &begin);
+    sscanf(strBegin, "%llx", &begin);
 
     char bufEnd[255] = {0};
     const char *strEnd = _sandardlizeAddrs(bufEnd, argv[3]);
 
-    sscanf(strEnd, "%p", &end);
+    sscanf(strEnd, "%llx", &end);
 
     const char *outPath = argv[4];
     char tmpPath[255] = {0};
