@@ -210,11 +210,9 @@ static void _regen_section_header(const Elf_Ehdr_Type *pehdr, const char *buffer
 				g_shdr[DYNSYM].sh_link = 2;
 				g_shdr[DYNSYM].sh_info = 1;
 				g_shdr[DYNSYM].sh_addralign = 4;
-				if (isElf32) {
-					g_shdr[DYNSYM].sh_entsize = 16;
-				} else {
-					g_shdr[DYNSYM].sh_entsize = 24;
-				}
+				break;
+			case DT_SYMENT:
+				g_shdr[DYNSYM].sh_entsize = dyn[i].d_un.d_ptr;
 				break;
 
 			case DT_STRTAB:
@@ -262,11 +260,9 @@ static void _regen_section_header(const Elf_Ehdr_Type *pehdr, const char *buffer
 				g_shdr[RELDYN].sh_info = 0;
 				g_shdr[RELDYN].sh_addralign = 4;
 				if (tag == DT_REL) {
-					g_shdr[RELDYN].sh_entsize = 8;
 					g_shdr[RELDYN].sh_name = _get_off_in_shstrtab(".rel.dyn");
 					g_shdr[RELDYN].sh_type = SHT_REL;
 				} else {
-					g_shdr[RELDYN].sh_entsize = 24;
 					g_shdr[RELDYN].sh_name = _get_off_in_shstrtab(".rela.dyn");
 					g_shdr[RELDYN].sh_type = SHT_RELA;
 				}
@@ -274,7 +270,14 @@ static void _regen_section_header(const Elf_Ehdr_Type *pehdr, const char *buffer
 			}
 
 			case DT_RELSZ:
+			case DT_RELASZ:
 				g_shdr[RELDYN].sh_size = dyn[i].d_un.d_val;
+				break;
+
+			case DT_RELENT:
+			case DT_RELAENT:
+				g_shdr[RELPLT].sh_entsize = dyn[i].d_un.d_val;
+				g_shdr[RELDYN].sh_entsize = dyn[i].d_un.d_val;
 				break;
 
 			case DT_JMPREL:
@@ -287,12 +290,10 @@ static void _regen_section_header(const Elf_Ehdr_Type *pehdr, const char *buffer
 				g_shdr[RELPLT].sh_addralign = 4;
 				if (isElf32) {
 					g_shdr[RELPLT].sh_name = _get_off_in_shstrtab(".rel.plt");
-					g_shdr[RELPLT].sh_entsize = 8;
 					g_shdr[RELPLT].sh_type = SHT_REL;
 				}
 				else {
 					g_shdr[RELPLT].sh_name = _get_off_in_shstrtab(".rela.plt");
-					g_shdr[RELPLT].sh_entsize = 24;
 					g_shdr[RELPLT].sh_type = SHT_RELA;
 				}
 
@@ -455,7 +456,7 @@ static void _regen_section_header(const Elf_Ehdr_Type *pehdr, const char *buffer
 	g_shdr[PLT].sh_size = 20 + 12 * (g_shdr[RELPLT].sh_size) / sizeof(Elf_Rel_Type);
 	g_shdr[PLT].sh_addralign = 4;
 
-	if (g_shdr[ARMEXIDX].sh_addr !=0) {
+	if (g_shdr[ARMEXIDX].sh_addr != 0) {
 		//text段的确定依赖ARMEXIDX的决定，ARMEXIDX没有的话，干脆不要text段了，因为text对ida分析没什么作用，ida对第一个LOAD的分析已经涵盖了text段的作用
 		g_shdr[TEXT].sh_name = _get_off_in_shstrtab(".text");
 		g_shdr[TEXT].sh_type = SHT_PROGBITS;
