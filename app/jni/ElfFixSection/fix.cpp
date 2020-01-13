@@ -162,10 +162,17 @@ static void _regen_section_header(const Elf_Ehdr_Type *pehdr, const char *buffer
 			g_shdr[DYNAMIC].sh_addr = phdr[i].p_vaddr;
 			g_shdr[DYNAMIC].sh_offset = phdr[i].p_vaddr;
 			g_shdr[DYNAMIC].sh_size = phdr[i].p_memsz;
-			g_shdr[DYNAMIC].sh_link = 2;
 			g_shdr[DYNAMIC].sh_info = 0;
-			g_shdr[DYNAMIC].sh_addralign = 4;
-			g_shdr[DYNAMIC].sh_entsize = 8;
+			if (isElf32) {
+				g_shdr[DYNAMIC].sh_link = 2;
+				g_shdr[DYNAMIC].sh_addralign = 4;
+				g_shdr[DYNAMIC].sh_entsize = 8;
+			}
+			else {
+				g_shdr[DYNAMIC].sh_link = 4;
+				g_shdr[DYNAMIC].sh_addralign = 8;
+				g_shdr[DYNAMIC].sh_entsize = 16;
+			}
 
 			dyn_size = phdr[i].p_memsz;
 			dyn_off = phdr[i].p_vaddr;
@@ -335,6 +342,7 @@ static void _regen_section_header(const Elf_Ehdr_Type *pehdr, const char *buffer
 				g_shdr[GOT].sh_addr = g_shdr[DYNAMIC].sh_addr + g_shdr[DYNAMIC].sh_size;
 				g_shdr[GOT].sh_offset = g_shdr[GOT].sh_addr;
 				g_shdr[GOT].sh_addralign = 4;
+
 				break;
 			case DT_INIT: {
 				//找到init段代码，但是无法知道有多长，只好做一个警告，提醒使用者init段存在，脱壳代码可能存在这里
@@ -358,8 +366,10 @@ static void _regen_section_header(const Elf_Ehdr_Type *pehdr, const char *buffer
 
 		//上面那种方式计算不可靠，根据libGameCore.so分析，nRelPlt比数量比实际GOT数量多10个，暂时没发现这十个成员的特殊性
 		//.got的结尾就是.data的开始，根据经验，data的地址总是与0x1000对齐。以此来修正地址
-	 	gotEnd = gotEnd & ~0x0FFF;
-
+		Elf_Word_Type gotEndTry = gotEnd & ~0x0FFF;
+		if (__global_offset_table < gotEndTry) {
+		    gotEnd = gotEndTry;
+		}
 
 		g_shdr[DATA].sh_name = _get_off_in_shstrtab(".data");
 		g_shdr[DATA].sh_type = SHT_PROGBITS;
@@ -446,7 +456,7 @@ static void _regen_section_header(const Elf_Ehdr_Type *pehdr, const char *buffer
 	g_shdr[PLT].sh_addralign = 4;
 
 	if (g_shdr[ARMEXIDX].sh_addr !=0) {
-		//text段的确定依赖ARMEXIDX的决定，ARMEXIDX没有的话，干脆不要text段了，因为text对ida分析没什么作用，ida对第一个LOAD的分析已经函数了text段的作用ARMEXIDX
+		//text段的确定依赖ARMEXIDX的决定，ARMEXIDX没有的话，干脆不要text段了，因为text对ida分析没什么作用，ida对第一个LOAD的分析已经涵盖了text段的作用
 		g_shdr[TEXT].sh_name = _get_off_in_shstrtab(".text");
 		g_shdr[TEXT].sh_type = SHT_PROGBITS;
 		g_shdr[TEXT].sh_flags = SHF_ALLOC | SHF_EXECINSTR;
