@@ -1,10 +1,9 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include "fix.h"
 #include "elf.h"
-#include "../../../../../../../usr/include/stdint.h"
 
 static const char* g_str = "..dynsym..dynstr..hash..rel.dyn..rel.plt..plt..text..ARM.exidx..fini_array..init_array..dynamic..got..data..bss..shstrtab..rela.dyn..rela.plt\0";
-static const char* g_strtabcontent = "\0.dynsym\0.dynstr\0.hash\0.rel.dyn\0.rel.plt\0.plt\0.text\0.ARM.exidx\0.fini_array\0.init_array\0.dynamic\0.got\0.data\0.bss\0.shstrtab\0.rela.dyn\0rela.plt\0";
+static const char* g_strtabcontent = "\0.dynsym\0.dynstr\0.hash\0.rel.dyn\0.rel.plt\0.plt\0.text\0.ARM.exidx\0.fini_array\0.init_array\0.dynamic\0.got\0.data\0.bss\0.shstrtab\0.rela.dyn\0.rela.plt\0";
 
 static uint32_t _get_off_in_shstrtab(const char *name)
 {
@@ -139,8 +138,8 @@ static void _regen_section_header(const Elf_Ehdr_Type *pehdr, const char *buffer
 		//TODO:should we fix it???
 	}
 
-
 	int loadIndex = 0;
+	int align = sizeof(Elf_Addr_Type);
 	for(int i = 0;i < ph_num;i++) {
 		phdr[i].p_vaddr -= bias;
 		phdr[i].p_paddr = phdr[i].p_vaddr;
@@ -163,14 +162,13 @@ static void _regen_section_header(const Elf_Ehdr_Type *pehdr, const char *buffer
 			g_shdr[DYNAMIC].sh_offset = phdr[i].p_vaddr;
 			g_shdr[DYNAMIC].sh_size = phdr[i].p_memsz;
 			g_shdr[DYNAMIC].sh_info = 0;
+            g_shdr[DYNAMIC].sh_link = DYNSTR;
 			if (isElf32) {
-				g_shdr[DYNAMIC].sh_link = 2;
-				g_shdr[DYNAMIC].sh_addralign = 4;
+				g_shdr[DYNAMIC].sh_addralign = align;
 				g_shdr[DYNAMIC].sh_entsize = 8;
 			}
 			else {
-				g_shdr[DYNAMIC].sh_link = 4;
-				g_shdr[DYNAMIC].sh_addralign = 8;
+				g_shdr[DYNAMIC].sh_addralign = align;
 				g_shdr[DYNAMIC].sh_entsize = 16;
 			}
 
@@ -187,7 +185,7 @@ static void _regen_section_header(const Elf_Ehdr_Type *pehdr, const char *buffer
 			g_shdr[ARMEXIDX].sh_size = phdr[i].p_memsz;
 			g_shdr[ARMEXIDX].sh_link = 7;
 			g_shdr[ARMEXIDX].sh_info = 0;
-			g_shdr[ARMEXIDX].sh_addralign = 4;
+			g_shdr[ARMEXIDX].sh_addralign = align;
 			g_shdr[ARMEXIDX].sh_entsize = 8;
 		}
 	}
@@ -209,7 +207,7 @@ static void _regen_section_header(const Elf_Ehdr_Type *pehdr, const char *buffer
 				g_shdr[DYNSYM].sh_offset = dyn[i].d_un.d_ptr;
 				g_shdr[DYNSYM].sh_link = 2;
 				g_shdr[DYNSYM].sh_info = 1;
-				g_shdr[DYNSYM].sh_addralign = 4;
+				g_shdr[DYNSYM].sh_addralign = align;
 				break;
 			case DT_SYMENT:
 				g_shdr[DYNSYM].sh_entsize = dyn[i].d_un.d_ptr;
@@ -242,9 +240,9 @@ static void _regen_section_header(const Elf_Ehdr_Type *pehdr, const char *buffer
 				memcpy(&nbucket, buffer + g_shdr[HASH].sh_offset, 4);
 				memcpy(&nchain, buffer + g_shdr[HASH].sh_offset + 4, 4);
 				g_shdr[HASH].sh_size = (nbucket + nchain + 2) * sizeof(int);
-				g_shdr[HASH].sh_link = 4;
-				g_shdr[HASH].sh_info = 1;
-				g_shdr[HASH].sh_addralign = 4;
+				g_shdr[HASH].sh_link = DYNSYM;
+				g_shdr[HASH].sh_info = 0;
+				g_shdr[HASH].sh_addralign = align;
 				g_shdr[HASH].sh_entsize = 4;
 				//linker源码，DT_HASH实际上是通过hashtable在加速动态符号的查找，所以hashtable的大小就是动态符号表的大小
 				nDynSyms = nchain;
@@ -256,9 +254,9 @@ static void _regen_section_header(const Elf_Ehdr_Type *pehdr, const char *buffer
 				g_shdr[RELDYN].sh_flags = SHF_ALLOC;
 				g_shdr[RELDYN].sh_addr = dyn[i].d_un.d_ptr;
 				g_shdr[RELDYN].sh_offset = dyn[i].d_un.d_ptr;
-				g_shdr[RELDYN].sh_link = 4;
+				g_shdr[RELDYN].sh_link = DYNSYM;
 				g_shdr[RELDYN].sh_info = 0;
-				g_shdr[RELDYN].sh_addralign = 4;
+				g_shdr[RELDYN].sh_addralign = align;
 				if (tag == DT_REL) {
 					g_shdr[RELDYN].sh_name = _get_off_in_shstrtab(".rel.dyn");
 					g_shdr[RELDYN].sh_type = SHT_REL;
@@ -287,7 +285,7 @@ static void _regen_section_header(const Elf_Ehdr_Type *pehdr, const char *buffer
 				g_shdr[RELPLT].sh_offset = dyn[i].d_un.d_ptr;
 				g_shdr[RELPLT].sh_link = 1;
 				g_shdr[RELPLT].sh_info = 6;
-				g_shdr[RELPLT].sh_addralign = 4;
+				g_shdr[RELPLT].sh_addralign = align;
 				if (isElf32) {
 					g_shdr[RELPLT].sh_name = _get_off_in_shstrtab(".rel.plt");
 					g_shdr[RELPLT].sh_type = SHT_REL;
@@ -310,7 +308,7 @@ static void _regen_section_header(const Elf_Ehdr_Type *pehdr, const char *buffer
 				g_shdr[FINIARRAY].sh_flags = SHF_WRITE | SHF_ALLOC;
 				g_shdr[FINIARRAY].sh_offset = dyn[i].d_un.d_ptr;
 				g_shdr[FINIARRAY].sh_addr = dyn[i].d_un.d_ptr;
-				g_shdr[FINIARRAY].sh_addralign = 4;
+				g_shdr[FINIARRAY].sh_addralign = align;
 				g_shdr[FINIARRAY].sh_entsize = 0;
 				break;
 
@@ -325,7 +323,7 @@ static void _regen_section_header(const Elf_Ehdr_Type *pehdr, const char *buffer
 				g_shdr[INITARRAY].sh_flags = SHF_WRITE | SHF_ALLOC;
 				g_shdr[INITARRAY].sh_offset = dyn[i].d_un.d_ptr;
 				g_shdr[INITARRAY].sh_addr = dyn[i].d_un.d_ptr;
-				g_shdr[INITARRAY].sh_addralign = 4;
+				g_shdr[INITARRAY].sh_addralign = align;
 				g_shdr[INITARRAY].sh_entsize = 0;
 				break;
 
@@ -342,7 +340,7 @@ static void _regen_section_header(const Elf_Ehdr_Type *pehdr, const char *buffer
 				//TODO:这里基于假设.got一定在.dynamic段之后，并不可靠，王者荣耀libGameCore.so就是例外
 				g_shdr[GOT].sh_addr = g_shdr[DYNAMIC].sh_addr + g_shdr[DYNAMIC].sh_size;
 				g_shdr[GOT].sh_offset = g_shdr[GOT].sh_addr;
-				g_shdr[GOT].sh_addralign = 4;
+				g_shdr[GOT].sh_addralign = align;
 
 				break;
 			case DT_INIT: {
@@ -375,10 +373,10 @@ static void _regen_section_header(const Elf_Ehdr_Type *pehdr, const char *buffer
 		g_shdr[DATA].sh_name = _get_off_in_shstrtab(".data");
 		g_shdr[DATA].sh_type = SHT_PROGBITS;
 		g_shdr[DATA].sh_flags = SHF_WRITE | SHF_ALLOC;
-		g_shdr[DATA].sh_addr = gotEnd;
+		g_shdr[DATA].sh_addr = gotEnd & 0x1000 ? (gotEnd + 0x1000) & ~0x0FFF : gotEnd;
 		g_shdr[DATA].sh_offset = g_shdr[DATA].sh_addr;
 		g_shdr[DATA].sh_size = lastLoad.p_vaddr + lastLoad.p_memsz - g_shdr[DATA].sh_addr;
-		g_shdr[DATA].sh_addralign = 4;
+		g_shdr[DATA].sh_addralign = align;
 		if (gotEnd > gotBase)
 		{
 			g_shdr[GOT].sh_size = gotEnd - gotBase;
@@ -454,7 +452,7 @@ static void _regen_section_header(const Elf_Ehdr_Type *pehdr, const char *buffer
 	g_shdr[PLT].sh_addr = g_shdr[RELPLT].sh_addr + g_shdr[RELPLT].sh_size;
 	g_shdr[PLT].sh_offset = g_shdr[PLT].sh_addr;
 	g_shdr[PLT].sh_size = 20 + 12 * (g_shdr[RELPLT].sh_size) / sizeof(Elf_Rel_Type);
-	g_shdr[PLT].sh_addralign = 4;
+	g_shdr[PLT].sh_addralign = align;
 
 	if (g_shdr[ARMEXIDX].sh_addr != 0) {
 		//text段的确定依赖ARMEXIDX的决定，ARMEXIDX没有的话，干脆不要text段了，因为text对ida分析没什么作用，ida对第一个LOAD的分析已经涵盖了text段的作用
