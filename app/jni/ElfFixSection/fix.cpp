@@ -75,6 +75,7 @@ uint32_t _get_mem_flag(Elf_Phdr_Type *phdr, size_t phNum, size_t memAddr) {
 
 template <typename Elf_Rel_Type, bool isElf32>
 static void _fix_rel_bias(Elf_Rel_Type *relDyn, size_t relCount, size_t bias) {
+	const int R_AARCH64_JUMP_SLOT = 1026;
 	for (int i = 0; i < relCount; i++) {
 		unsigned type = 0;
 		unsigned sym = 0;
@@ -87,7 +88,7 @@ static void _fix_rel_bias(Elf_Rel_Type *relDyn, size_t relCount, size_t bias) {
 			sym = ELF64_R_SYM(relDyn[i].r_info);
 		}
 		//这两种重定位地址都是相对于loadAddr的，所以要修正
-		if (type == R_ARM_JUMP_SLOT || type == R_ARM_RELATIVE) {
+		if (type == R_ARM_JUMP_SLOT || type == R_ARM_RELATIVE || type == R_AARCH64_JUMP_SLOT) {
 		    if (relDyn[i].r_offset > 0) {
 				relDyn[i].r_offset -= bias;
 			}
@@ -102,6 +103,10 @@ static void _fix_dynsym_bias(Elf_Sym_Type *dysym, size_t count, size_t bias) {
 			dysym[i].st_value -= bias;
 		}
 	}
+}
+static uint64_t paddup(uint64_t input, uint64_t align) {
+    uint64_t pad = ~(align-1);
+	return input % align ? (input + align) & pad : input;
 }
 
 template <typename Elf_Ehdr_Type, typename Elf_Shdr_Type, typename Elf_Phdr_Type,
@@ -283,8 +288,8 @@ static void _regen_section_header(const Elf_Ehdr_Type *pehdr, const char *buffer
 				g_shdr[RELPLT].sh_flags = SHF_ALLOC;
 				g_shdr[RELPLT].sh_addr = dyn[i].d_un.d_ptr;
 				g_shdr[RELPLT].sh_offset = dyn[i].d_un.d_ptr;
-				g_shdr[RELPLT].sh_link = 1;
-				g_shdr[RELPLT].sh_info = 6;
+				g_shdr[RELPLT].sh_link = DYNSYM;
+				g_shdr[RELPLT].sh_info = PLT;
 				g_shdr[RELPLT].sh_addralign = align;
 				if (isElf32) {
 					g_shdr[RELPLT].sh_name = _get_off_in_shstrtab(".rel.plt");
@@ -355,13 +360,17 @@ static void _regen_section_header(const Elf_Ehdr_Type *pehdr, const char *buffer
 				break;
 		}
 	}
+	size_t relpltCount = g_shdr[RELPLT].sh_size/g_shdr[RELPLT].sh_entsize;
 	if (__global_offset_table)
 	{
 		Elf_Word_Type gotBase = g_shdr[GOT].sh_addr;
-		unsigned nRelPlt = g_shdr[RELPLT].sh_size / sizeof(Elf_Rel_Type);
 
 		//__global_offset_table里面成员个数等于RELPLT的成员数+3个固定成员
-		Elf_Word_Type gotEnd = __global_offset_table + 4 * (nRelPlt + 3);
+		Elf_Word_Type szGotEntry = 4;
+		if (!isElf32) {
+			szGotEntry = 8;
+		}
+		Elf_Word_Type gotEnd = __global_offset_table + szGotEntry * (relpltCount + 3);
 
 		//上面那种方式计算不可靠，根据libGameCore.so分析，nRelPlt比数量比实际GOT数量多10个，暂时没发现这十个成员的特殊性
 		//.got的结尾就是.data的开始，根据经验，data的地址总是与0x1000对齐。以此来修正地址
@@ -373,7 +382,7 @@ static void _regen_section_header(const Elf_Ehdr_Type *pehdr, const char *buffer
 		g_shdr[DATA].sh_name = _get_off_in_shstrtab(".data");
 		g_shdr[DATA].sh_type = SHT_PROGBITS;
 		g_shdr[DATA].sh_flags = SHF_WRITE | SHF_ALLOC;
-		g_shdr[DATA].sh_addr = gotEnd & 0x1000 ? (gotEnd + 0x1000) & ~0x0FFF : gotEnd;
+		g_shdr[DATA].sh_addr = paddup(gotEnd, 0x1000);
 		g_shdr[DATA].sh_offset = g_shdr[DATA].sh_addr;
 		g_shdr[DATA].sh_size = lastLoad.p_vaddr + lastLoad.p_memsz - g_shdr[DATA].sh_addr;
 		g_shdr[DATA].sh_addralign = align;
@@ -438,7 +447,7 @@ static void _regen_section_header(const Elf_Ehdr_Type *pehdr, const char *buffer
 					newType = STT_FUNC;
 				}
 			}
-			sym->st_info = (unsigned char)(c | STT_FUNC);
+			sym->st_info = (unsigned char)(c | newType);
 		}
 		sym++;
 	}
@@ -446,13 +455,25 @@ static void _regen_section_header(const Elf_Ehdr_Type *pehdr, const char *buffer
 	//printf("size %d addr %08x\n", g_shdr[DYNSTR].sh_size, g_shdr[DYNSTR].sh_addr);
 	g_shdr[DYNSYM].sh_size = nDynSyms * sizeof(Elf_Sym_Type);
 
+	unsigned pltAlign = 4;
+	if (!isElf32) {
+		pltAlign = 16;
+	}
 	g_shdr[PLT].sh_name = _get_off_in_shstrtab(".plt");
 	g_shdr[PLT].sh_type = SHT_PROGBITS;
 	g_shdr[PLT].sh_flags = SHF_ALLOC | SHF_EXECINSTR;
-	g_shdr[PLT].sh_addr = g_shdr[RELPLT].sh_addr + g_shdr[RELPLT].sh_size;
+	Elf_Addr_Type addr = g_shdr[RELPLT].sh_addr + g_shdr[RELPLT].sh_size;
+
+	g_shdr[PLT].sh_addr = addr % pltAlign ? (addr & ~(pltAlign - 1)) + pltAlign : addr;
+	//g_shdr[PLT].sh_addr = 0x0000000000031df0;
 	g_shdr[PLT].sh_offset = g_shdr[PLT].sh_addr;
-	g_shdr[PLT].sh_size = 20 + 12 * (g_shdr[RELPLT].sh_size) / sizeof(Elf_Rel_Type);
-	g_shdr[PLT].sh_addralign = align;
+	//20=padding 12=每个plt的指令大小
+	Elf_Word_Type szPltEntry = 12;
+	if (!isElf32) {
+		szPltEntry = 16;
+	}
+	g_shdr[PLT].sh_size = paddup(20 + szPltEntry * relpltCount, pltAlign);
+	g_shdr[PLT].sh_addralign = pltAlign;
 
 	if (g_shdr[ARMEXIDX].sh_addr != 0) {
 		//text段的确定依赖ARMEXIDX的决定，ARMEXIDX没有的话，干脆不要text段了，因为text对ida分析没什么作用，ida对第一个LOAD的分析已经涵盖了text段的作用
@@ -473,11 +494,10 @@ static void _regen_section_header(const Elf_Ehdr_Type *pehdr, const char *buffer
 
 
 	Elf_Rel_Type *relDyn = (Elf_Rel_Type*)(buffer + g_shdr[RELDYN].sh_addr);
-	size_t relCount = g_shdr[RELDYN].sh_size/sizeof(Elf_Rel_Type);
+	size_t relCount = g_shdr[RELDYN].sh_size/g_shdr[RELDYN].sh_entsize;
 	_fix_rel_bias<Elf_Rel_Type, isElf32>(relDyn, relCount, bias);
 
 	Elf_Rel_Type *relPlt = (Elf_Rel_Type*)(buffer + g_shdr[RELPLT].sh_addr);
-	size_t relpltCount = g_shdr[RELPLT].sh_size/sizeof(Elf_Rel_Type);
 	_fix_rel_bias<Elf_Rel_Type, isElf32>(relPlt, relpltCount, bias);
 
 	Elf_Sym_Type *dynsym = (Elf_Sym_Type*)(buffer+g_shdr[DYNSYM].sh_addr);
