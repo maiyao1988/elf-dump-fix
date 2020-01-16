@@ -76,6 +76,7 @@ uint32_t _get_mem_flag(Elf_Phdr_Type *phdr, size_t phNum, size_t memAddr) {
 template <typename Elf_Rel_Type, bool isElf32>
 static void _fix_rel_bias(Elf_Rel_Type *relDyn, size_t relCount, size_t bias) {
 	const int R_AARCH64_JUMP_SLOT = 1026;
+	const int R_AARCH64_RELATIVE = 1027;
 	for (int i = 0; i < relCount; i++) {
 		unsigned type = 0;
 		unsigned sym = 0;
@@ -88,7 +89,7 @@ static void _fix_rel_bias(Elf_Rel_Type *relDyn, size_t relCount, size_t bias) {
 			sym = ELF64_R_SYM(relDyn[i].r_info);
 		}
 		//这两种重定位地址都是相对于loadAddr的，所以要修正
-		if (type == R_ARM_JUMP_SLOT || type == R_ARM_RELATIVE || type == R_AARCH64_JUMP_SLOT) {
+		if (type == R_ARM_JUMP_SLOT || type == R_ARM_RELATIVE || type == R_AARCH64_JUMP_SLOT || type == R_AARCH64_RELATIVE) {
 		    if (relDyn[i].r_offset > 0) {
 				relDyn[i].r_offset -= bias;
 			}
