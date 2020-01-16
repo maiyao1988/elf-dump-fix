@@ -464,7 +464,7 @@ static void _regen_section_header(const Elf_Ehdr_Type *pehdr, const char *buffer
 	g_shdr[PLT].sh_flags = SHF_ALLOC | SHF_EXECINSTR;
 	Elf_Addr_Type addr = g_shdr[RELPLT].sh_addr + g_shdr[RELPLT].sh_size;
 
-	g_shdr[PLT].sh_addr = addr % pltAlign ? (addr & ~(pltAlign - 1)) + pltAlign : addr;
+	g_shdr[PLT].sh_addr = paddup(addr, pltAlign);
 	//g_shdr[PLT].sh_addr = 0x0000000000031df0;
 	g_shdr[PLT].sh_offset = g_shdr[PLT].sh_addr;
 	//20=padding 12=每个plt的指令大小
@@ -600,7 +600,7 @@ int fix_so(const char *openPath, const char *outPutPath, uint64_t ptrbase)
 		_fix_elf<Elf32_Ehdr, Elf32_Shdr, Elf32_Phdr, Elf32_Word, Elf32_Addr, Elf32_Sym, Elf32_Dyn, Elf32_Rel, true>(buffer, flen, fw, ptrbase);
 	}
 	else {
-		_fix_elf<Elf64_Ehdr, Elf64_Shdr, Elf64_Phdr, Elf64_Word, Elf64_Addr, Elf64_Sym, Elf64_Dyn, Elf64_Rel, false>(buffer, flen, fw, ptrbase);
+		_fix_elf<Elf64_Ehdr, Elf64_Shdr, Elf64_Phdr, Elf64_Word, Elf64_Addr, Elf64_Sym, Elf64_Dyn, Elf64_Rela, false>(buffer, flen, fw, ptrbase);
 	}
 
 	printf("fixed so has write to %s\n", outPutPath);
