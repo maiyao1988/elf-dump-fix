@@ -1,60 +1,28 @@
-#include "Substrate/SubstrateHook.h"
+//
+// Created by my on 20-2-27.
+//
 
 #include <jni.h>
-#include <string>
-#include <vector>
-#include <dlfcn.h>
-#include <unistd.h>
-#include <android/log.h>
-#include "StackDump.h"
-#include "ElfUtils.h"
 
-#define TAG "REV-DEMO"
+int main(int argc, char *argv[]);
+JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved)
+{
+    JNIEnv* env = 0;
+    jint result = -1;
 
-typedef ssize_t (*fnread) (int fd, void *buf, size_t count);
-fnread ori_read = read;
-
-ssize_t my_read(int fd, void *buf, size_t count) {
-    __android_log_print(ANDROID_LOG_INFO, TAG, "read call fd=%d, buf=%p, count=%u", fd, buf, count);
-    DUMP_CALL_STACK(TAG);
-    return ori_read(fd, buf, count);
-}
-
-extern "C" JNIEXPORT jstring JNICALL
-Java_com_reverse_my_reverseutils_MainActivity_stringFromJNI(
-        JNIEnv* env,
-        jobject /* this */) {
-
-
-    __android_log_print(ANDROID_LOG_INFO, TAG, "before hook %p", ori_read);
-    MSHookFunction((void*)read, (void*)my_read, (void**)&ori_read);
-    __android_log_print(ANDROID_LOG_INFO, TAG, "after hook %p", ori_read);
-
-    //inline_hook_check("libc.so");
-    inline_hook_check("libart.so");
-
-    std::vector<int> v;
-    v.push_back(3);
-    v.push_back(5);
-    std::vector<int>::iterator it = v.begin();
-    for (;it != v.end(); it++) {
-        printf("%d", *it);
+    if (vm->GetEnv((void**) &env, JNI_VERSION_1_4) != JNI_OK) {
+        return -1;
     }
 
-    std::string s = "abc";
-    s = s + "ccc";
-    printf("string %s", s.c_str());
+    //0xb4509000 0xb47fe000
 
-    if (s == "bbb") {
-        printf("hello world %d", s.find("kkk"));
-    }
+    int argc=5;
+    char *argv[] = {"dump", "0", "0xb4509000", "0xb47fe000", "/sdcard/libart_fix.so"};
+    main(argc, argv);
 
-    /*
-    void *p = fake_dlopen("libc.so", 0);
-    fnread f = (fnread ) fake_dlsym(p, "read");
-    fake_dlclose(p);
-     */
+    result = JNI_VERSION_1_4;
 
-    std::string hello = "Hello from C++";
-    return env->NewStringUTF(hello.c_str());
+    return result;
 }
+
+
