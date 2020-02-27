@@ -18,21 +18,16 @@ LOCAL_MODULE := rev
 
 #$(warning "the value of LOCAL_PATH is $(LOCAL_PATH)")
 
-LOCAL_SRC_FILES += $(wildcard $(LOCAL_PATH)/Substrate/*.cpp)
-LOCAL_SRC_FILES += $(wildcard $(LOCAL_PATH)/Substrate/*.c)
-LOCAL_SRC_FILES += $(wildcard $(LOCAL_PATH)/*.cpp)
 LOCAL_SRC_FILES += $(wildcard $(LOCAL_PATH)/ElfFixSection/*.cpp)
 LOCAL_SRC_FILES += $(wildcard $(LOCAL_PATH)/ElfFixSection/*.c)
+LOCAL_SRC_FILES += $(LOCAL_PATH)/test.cpp
 
 #$(warning "lc $(LOCAL_SRC_FILES)")
 
-#LOCAL_SRC_FILES := Substrate/SubstrateHook.cpp
 LOCAL_CFLAGS := -fvisibility=hidden -Wno-invalid-source-encoding -Wno-return-type-c-linkage
+LOCAL_CFLAGS := -Wno-invalid-source-encoding -Wno-return-type-c-linkage
 LOCAL_CPPFLAGS	+= -frtti -fexceptions
 LOCAL_LDLIBS += -llog
 
-#LOCAL_CFLAGS +=
-
-#LOCAL_LDFLAGS +=
 
 include $(BUILD_SHARED_LIBRARY)
