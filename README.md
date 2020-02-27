@@ -51,4 +51,4 @@ The main target is to rebuild the Section Header of an ELF by memory dumped.Usef
          40152000-40160000 rw-p 00000000 00:00 0 
         ```
      - ./dump 1148 0x40105000 0x40160000 ./out.so 0 1
-       - dump to 40160000 not 40152000 is because bss if exist should be dump too, the fix process depends on it.
+       - dump to 40160000 not 40152000 is because the ELF .bss memory if exist should be dump too, the fix process depends on it.
