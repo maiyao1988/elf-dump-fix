@@ -42,4 +42,13 @@ The main target is to rebuild the Section Header of an ELF by memory dumped.Usef
      - [is-stop-process-before-dump] 0/1 should send sigal to the process before doing dump job, useful in some anti dumping app. if there is no anti dumping on your target process, 0 is ok
      - [is-fix-so-after-dump] 0/1 should do the fix job and Section Header rebuilding, if you pass on, it will try to fix the ELF after dump.
    - example
-     - ./dump 1148 0x40105000 0x40152000 ./out.so 0 1
+     - if you want to dump libc.so, and you your /proc/pid/maps
+     - ```
+         40105000-4014c000 r-xp 00000000 b3:19 717        /system/lib/libc.so
+         4014c000-4014d000 ---p 00000000 00:00 0 
+         4014d000-4014f000 r--p 00047000 b3:19 717        /system/lib/libc.so
+         4014f000-40152000 rw-p 00049000 b3:19 717        /system/lib/libc.so
+         40152000-40160000 rw-p 00000000 00:00 0 
+        ```
+     - ./dump 1148 0x40105000 0x40160000 ./out.so 0 1
+       - dump to 40160000 not 40152000 is because bss if exist should be dump too, the fix process depends on it.
