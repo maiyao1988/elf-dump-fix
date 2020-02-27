@@ -2,7 +2,7 @@
 This resp include two utils
 
 - dump  
-  - Run on android, can dump elf from a process memory and fix it, Rebuild the Section Header for better IDA analysis.
+  - Run on android, can dump ELF from a process memory and fix it, Rebuild the Section Header for better IDA analysis.
 - sofix
   - Run on PC, can fix an ELF file dumped from memory and an build the Section Header for better IDA analysis.
 
