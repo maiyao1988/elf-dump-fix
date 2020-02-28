@@ -23,7 +23,7 @@ The main target is to rebuild the Section Header of an ELF by memory dumped.Usef
 ## HowToUse
  - sofix
    - params <src_so_path> <base_addr_in_memory_in_hex> <out_so_path>
-     - <src_so_path> the elf file dumped from memory.
+     - <src_so_path> the elf file dumped from memory.(you can use dd or IDA debugger dumping an ELF file from android process)
      - <base_addr_in_memory_in_hex> the memory base for the elf file dumped from memory, if you don't know, pass 0 is ok
      - <out_so_path> the output file
    - example
